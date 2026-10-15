@@ -3,6 +3,7 @@
 // dieselben Daten (und echte Spieler statt der simulierten Mitspieler).
 import { armyLoad, armySize, armySpeed, fight, fighters, type Army, type UnitId } from './army';
 import type { ResourceId, Resources } from './content';
+import { troopBuffs } from './heroes';
 import type { Player } from './player';
 import { createRng, nextFloat, nextInt } from './rng';
 
@@ -184,8 +185,11 @@ export function distance(world: World, tile: WorldTile) {
   return Math.hypot(tile.x - world.home.x, tile.y - world.home.y);
 }
 
-export const travelMs = (world: World, tile: WorldTile, army: Army) =>
-  Math.round((distance(world, tile) * SECONDS_PER_TILE * 1000) / armySpeed(army));
+export const travelMs = (world: World, tile: WorldTile, army: Army, speedBonus = 0) =>
+  Math.round((distance(world, tile) * SECONDS_PER_TILE * 1000) / (armySpeed(army) * (1 + speedBonus)));
+
+// Sammeltempo inkl. Helden-Bonus
+export const gatherRateFor = (player: Player, level: number) => gatherRate(level) * (1 + troopBuffs(player).gather);
 
 export const marchSlots = (player: Player) => 2 + Math.floor((player.buildings.hq.level - 1) / 4);
 
@@ -205,7 +209,7 @@ export function sendMarch(player: Player, tileKeyStr: string, kind: March['kind'
   if (player.marches.some((m) => m.target === tile.key && m.kind === 'gather' && kind === 'gather')) return 'Hier sammelt schon ein Trupp.';
 
   for (const k of fighters(units)) player.troops[k as UnitId] -= units[k]!;
-  const travel = travelMs(world, tile, units);
+  const travel = travelMs(world, tile, units, troopBuffs(player).speed);
   player.marches.push({
     id: player.nextId++, kind, target: tile.key, units: { ...units }, departAt: now, arriveAt: now + travel, travelMs: travel,
     workEndsAt: null, returnAt: null, state: 'out', cargo: { ...EMPTY },
@@ -221,7 +225,7 @@ export function recallMarch(player: Player, id: number, now: number) {
     // Bis jetzt Gesammeltes mitnehmen
     const world = getWorld(player.world.seed);
     const tile = world.byKey.get(m.target)!;
-    const gathered = Math.floor((now - m.arriveAt) / 1000 * gatherRate(tile.level));
+    const gathered = Math.floor(((now - m.arriveAt) / 1000) * gatherRateFor(player, tile.level));
     const amount = Math.min(gathered, m.cargo[tile.res!]);
     const state = (player.world.tiles[tile.key] ??= {});
     state.remaining = (state.remaining ?? 0) + (m.cargo[tile.res!] - amount);
@@ -251,20 +255,20 @@ function arrive(player: Player, m: March, world: World) {
   const state = (player.world.tiles[tile.key] ??= {});
 
   if (m.kind === 'gather') {
-    const amount = Math.min(armyLoad(m.units), remaining(player, tile, at));
+    const amount = Math.min(armyLoad(m.units, troopBuffs(player).load), remaining(player, tile, at));
     state.remaining = remaining(player, tile, at) - amount;
     delete state.respawnAt;
     if (state.remaining <= 0) state.respawnAt = at + RESPAWN_MS;
     m.cargo[tile.res!] = amount; // reserviert, wird bei Rückkehr gutgeschrieben
     m.state = 'working';
-    m.workEndsAt = at + Math.round((amount / gatherRate(tile.level)) * 1000);
+    m.workEndsAt = at + Math.round((amount / gatherRateFor(player, tile.level)) * 1000);
     return;
   }
 
   // Angriff auf Horde oder Stadt
   const bot = tile.kind === 'city' ? botOf(world, tile) : null;
   const enemy = bot ? bot.army : hordeArmy(tile.level);
-  const result = fight(m.units, enemy, bot ? 1 : hordeScale(tile.level));
+  const result = fight(m.units, enemy, bot ? 1 : hordeScale(tile.level), 1, troopBuffs(player));
   m.units = result.attackerLeft;
   m.state = 'back';
   m.returnAt = at + m.travelMs;
@@ -280,7 +284,7 @@ function arrive(player: Player, m: March, world: World) {
   let loot: Resources;
   if (bot) {
     // Plündern: bis zur Tragkraft der Überlebenden, gleichmäßig über alle Rohstoffe
-    const load = armyLoad(m.units);
+    const load = armyLoad(m.units, troopBuffs(player).load);
     const stashTotal = bot.stash.food + bot.stash.wood + bot.stash.steel;
     const f = Math.min(1, load / stashTotal);
     loot = { food: Math.floor(bot.stash.food * f), wood: Math.floor(bot.stash.wood * f), steel: Math.floor(bot.stash.steel * f) };
@@ -290,9 +294,11 @@ function arrive(player: Player, m: March, world: World) {
     state.respawnAt = at + RESPAWN_MS;
   }
   m.cargo = loot;
+  const diamonds = bot ? 3 : Math.floor(tile.level / 3);
+  player.diamonds += diamonds;
   report(player, {
     at, win: true, title: `Sieg gegen ${name}`, loot, losses: result.attackerLosses, enemyLosses: result.defenderLosses,
-    text: bot ? 'Die Stadt wurde geplündert und steht jetzt unter Schutzschild.' : 'Die Horde ist vernichtet.',
+    text: `${bot ? 'Die Stadt wurde geplündert und steht jetzt unter Schutzschild.' : 'Die Horde ist vernichtet.'}${diamonds ? ` +${diamonds} Diamanten!` : ''}`,
   });
 }
 

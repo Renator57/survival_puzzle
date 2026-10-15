@@ -3,7 +3,9 @@
 import Phaser from 'phaser';
 import { COLS, ROWS, isAdjacent, type Pos, type Special, type Tile } from '../core/board';
 import { canUseSkill, swap, useSkill, type Battle, type BattleEvent, type Enemy } from '../core/battle';
-import { HEROES, STAGES, ZOMBIES, type HeroId, type ZombieKind } from '../core/content';
+import { STAGES, ZOMBIES, type ZombieKind } from '../core/content';
+import { heroDef, type HeroId } from '../core/heroes';
+import { RARITY_COLORS } from './colors';
 
 export const WIDTH = 720;
 export const HEIGHT = 1280;
@@ -101,7 +103,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   preload() {
-    for (const def of HEROES) this.load.image(`hero-${def.id}`, `img/hero-${def.id}.webp`);
+    for (const h of this.battle.heroes) this.load.image(`hero-${h.id}`, `img/hero-${h.id}.webp`);
     for (const kind of ['walker', 'runner', 'brute', 'boss']) this.load.image(`zombie-${kind}`, `img/zombie-${kind}.webp`);
     for (let c = 0; c < TILE_COLORS.length; c++) this.load.image(`tile-${c}`, `img/tile-${c}.webp`);
     this.load.image('ui-boom', 'img/ui-boom.webp');
@@ -208,12 +210,13 @@ export class BattleScene extends Phaser.Scene {
   // ---------- Helden ----------
   private createHeroes() {
     this.add.rectangle(WIDTH / 2, 560, WIDTH, 170, 0x0d0f14, 1).setDepth(10);
-    HEROES.forEach((def, i) => {
+    this.battle.heroes.forEach((hero, i) => {
+      const def = heroDef(hero.id);
       const x = 72 + i * 144;
       const y = 556;
       const color = hex(TILE_COLORS[def.color]);
       const container = this.add.container(x, y).setDepth(11);
-      const base = this.add.circle(0, 0, 50, 0x1a1d26);
+      const base = this.add.circle(0, 0, 50, 0x1a1d26).setStrokeStyle(4, hex(RARITY_COLORS[def.rarity]));
       const inner = this.add.circle(0, 0, 40, color, 0.9);
       const icon = this.add.image(0, 2, `hero-${def.id}`).setDisplaySize(78, 78);
       const ring = this.add.graphics();
@@ -227,7 +230,8 @@ export class BattleScene extends Phaser.Scene {
       container.setSize(110, 110).setInteractive({ useHandCursor: true });
       container.on('pointerup', () => this.trySkill(def.id));
       this.tweens.add({ targets: ready, scale: 1.12, yoyo: true, repeat: -1, duration: 420 });
-      const hero = this.battle.heroes.find((h) => h.id === def.id)!;
+      // leichtes „Atmen“, versetzt pro Held
+      this.tweens.add({ targets: icon, y: -2, scaleX: icon.scaleX * 1.04, scaleY: icon.scaleY * 1.04, yoyo: true, repeat: -1, duration: 1300 + i * 170, ease: 'Sine.easeInOut' });
       this.heroViews.push({ id: def.id, color: def.color, x, y, container, ring, ready, energy: hero.energy, maxEnergy: hero.maxEnergy });
     });
   }
@@ -374,7 +378,7 @@ export class BattleScene extends Phaser.Scene {
         this.cameras.main.flash(250, 255, 240, 140);
         return this.wait(250);
       case 'skill': {
-        const def = HEROES.find((h) => h.id === event.heroId)!;
+        const def = heroDef(event.heroId);
         const view = this.heroViews.find((h) => h.id === event.heroId)!;
         view.energy = 0;
         this.drawHeroRing(view);

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { COLS, ROWS, createBoard, hasMatch, hasValidMove, isValidSwap, playSwap, type Board, type Pos } from '../src/core/board';
 import { createBattle, swap, useSkill } from '../src/core/battle';
-import { HEROES, STAGES, type HeroId } from '../src/core/content';
+import { STAGES } from '../src/core/content';
+import { battleTeam } from '../src/core/heroes';
 import * as P from '../src/core/player';
 import { createRng } from '../src/core/rng';
 
-const levels = Object.fromEntries(HEROES.map((h) => [h.id, 1])) as Record<HeroId, number>;
+const team = battleTeam(P.createPlayer(0));
 
 function findMove(board: Board): [Pos, Pos] {
   for (let r = 0; r < ROWS; r++)
@@ -93,7 +94,7 @@ describe('Spielfeld', () => {
 describe('Kampf', () => {
   it('ist mit gleichem Seed reproduzierbar (Grundlage für Server-Prüfung)', () => {
     const run = () => {
-      const battle = createBattle({ stageId: 1, heroLevels: levels, hpBonus: 0, seed: 42 });
+      const battle = createBattle({ stageId: 1, team, hpBonus: 0, seed: 42 });
       for (let i = 0; i < 15 && battle.result === 'ongoing'; i++) swap(battle, ...findMove(battle.board));
       return JSON.stringify(battle);
     };
@@ -103,7 +104,7 @@ describe('Kampf', () => {
   it('Level 1 ist mit normalen Zügen schaffbar', () => {
     let wins = 0;
     for (let seed = 1; seed <= 20; seed++) {
-      const battle = createBattle({ stageId: 1, heroLevels: levels, hpBonus: 0, seed });
+      const battle = createBattle({ stageId: 1, team, hpBonus: 0, seed });
       for (let i = 0; i < 100 && battle.result === 'ongoing'; i++) {
         swap(battle, ...findMove(battle.board));
         for (const h of battle.heroes) useSkill(battle, h.id);
@@ -114,7 +115,7 @@ describe('Kampf', () => {
   });
 
   it('Zombies greifen an, wenn ihr Zähler abläuft', () => {
-    const battle = createBattle({ stageId: 1, heroLevels: levels, hpBonus: 0, seed: 5 });
+    const battle = createBattle({ stageId: 1, team, hpBonus: 0, seed: 5 });
     for (const e of battle.enemies) {
       e.hp = e.maxHp = 1e9;
       e.countdown = 1;
@@ -125,7 +126,7 @@ describe('Kampf', () => {
   });
 
   it('Fähigkeit nur mit voller Energie', () => {
-    const battle = createBattle({ stageId: 1, heroLevels: levels, hpBonus: 0, seed: 5 });
+    const battle = createBattle({ stageId: 1, team, hpBonus: 0, seed: 5 });
     expect(useSkill(battle, 'rex')).toBeNull();
     battle.heroes[0].energy = battle.heroes[0].maxEnergy;
     expect(useSkill(battle, 'rex')).not.toBeNull();
@@ -165,7 +166,7 @@ describe('Basis', () => {
     const p = P.createPlayer(0);
     expect(P.isStageUnlocked(p, 2)).toBe(false);
     const first = P.completeStage(p, 1);
-    expect(first).toEqual(STAGES[0].reward);
+    expect(first).toMatchObject(STAGES[0].reward);
     expect(P.isStageUnlocked(p, 2)).toBe(true);
     expect(P.completeStage(p, 1).food).toBeLessThan(first.food);
   });

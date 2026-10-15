@@ -62,7 +62,7 @@ describe('Weltkarte', () => {
     processMarches(p, 10 * 60 * 1000);
     expect(p.marches).toHaveLength(0);
     expect(p.troops.brawler).toBe(30);
-    expect(p.resources.wood).toBe(woodBefore + 160);
+    expect(p.resources.wood).toBe(woodBefore + 176); // 20 × 8 Tragkraft + 10 % durch Bolt
     expect(p.reports[0].title).toContain('Sammeltrupp');
   });
 

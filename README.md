@@ -18,7 +18,14 @@ Handy-Spiel im Stil von *Puzzles & Survival*: **Match-3-Kämpfe gegen Zombie-Wel
   - Getroffene Steine laden die Helden auf. Volle Helden antippen → **Fähigkeit** (kostet keinen Zug).
 - **Basis:** Farm, Sägewerk und Stahlwerk produzieren auch offline. Das Lager begrenzt die Menge,
   die Schutzmauer gibt mehr Lebenspunkte im Kampf. Das Hauptquartier begrenzt die Stufe aller Gebäude.
-- **Helden:** Mit Nahrung und Holz trainieren (bis Stufe 30).
+- **Helden:** 21 Helden in 4 Seltenheiten (Gewöhnlich, Episch, Legendär, Mythisch) und 4 Fraktionen.
+  - Team aus 5 Helden, je einer pro Steinfarbe.
+  - **Truppen-Boni** auf der Weltkarte (z. B. „Schläger +14 % Angriff“, „+20 % Sammeltempo“).
+  - **Kombos:** 2–5 Helden derselben Fraktion und besondere Duos (z. B. Rex + Mara = Rettungsteam).
+  - **Talentbaum** pro Held (Angriff, Verteidigung, Kommando), 1 Punkt pro Stufe, Zurücksetzen kostet Diamanten.
+  - **Sterne** über Splitter aus doppelten Helden.
+  - **Beschwörung** mit seltenen Diamanten (5 % legendär, garantiert nach 40), mit Portal- und Karten-Animation.
+  - **Mythische Helden** nur im Shop (Echtgeld – wird mit dem Server freigeschaltet).
 - **Karte:** 24 Level, alle 4 Level ein Boss.
 - **Truppen:** Schläger, Schützen und Fahrer aus der Kaserne – mit Konter-Dreieck
   (Schläger > Fahrer > Schützen > Schläger, +50 % Schaden). Sammelwagen aus der Werkstatt
@@ -43,7 +50,7 @@ zu Grafik oder Browser. Dieselben Dateien können später unverändert auf einem
 festen Zufalls-Seed, sodass der Server jeden Kampf nachrechnen und Schummeln erkennen kann.
 
 ```
-src/core/      Spielregeln (Server-tauglich): board.ts, battle.ts, player.ts, content.ts, army.ts, world.ts
+src/core/      Spielregeln (Server-tauglich): board.ts, battle.ts, player.ts, content.ts, army.ts, world.ts, heroes.ts
 src/game/      Phaser-Kampfszene (nur Darstellung)
 src/main.ts    Menüs, Speichern, Navigation
 tests/         Tests der Spielregeln
@@ -94,8 +101,7 @@ das Apple Developer Program (99 $/Jahr).
 1. ~~Match-3-Kampf, Helden, Basis, 24 Level~~ ✅
 2. ~~Neues Design: Landkarte, Lager-Ansicht, 3D-Grafiken~~ ✅
 3. ~~Truppen mit Konter-System, Sammelwagen, Weltkarte mit Märschen~~ ✅
-4. Helden-System 2.0: mehr Helden, Boni auf Truppen, Helden-Kombinationen, Talentbaum, Animationen,
-   Beschwörung mit seltener Premium-Währung
+4. ~~Helden-System 2.0: 21 Helden, Truppen-Boni, Kombos, Talentbaum, Sterne, Beschwörung, Shop~~ ✅
 5. **Mehrspieler-Server**: Konten, Weltkarte mit echten Spielern, Allianzen, Chat, Ranglisten,
    Angriffe zwischen Spielern, Kämpfe werden vom Server berechnet
 6. Shop (In-App-Käufe über Google Play / App Store), Musik und Sound, Tutorial

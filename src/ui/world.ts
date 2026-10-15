@@ -1,8 +1,9 @@
 // Weltkarte: verschiebbar/zoombar, Felder antippen → Trupps zum Sammeln oder Angreifen schicken.
 import { UNITS, armyLoad, armyPower, armySize, fight, fighters, unitDef, type Army, type UnitId } from '../core/army';
+import { troopBuffs } from '../core/heroes';
 import * as P from '../core/player';
 import {
-  WORLD_SIZE, botOf, gatherRate, getWorld, hordeArmy, hordeReward, hordeScale, isAvailable, marchProgress, marchSlots,
+  WORLD_SIZE, botOf, gatherRateFor, getWorld, hordeArmy, hordeReward, hordeScale, isAvailable, marchProgress, marchSlots,
   remaining, resourceTotal, sendMarch, travelMs, type World, type WorldTile,
 } from '../core/world';
 import { actions, app, closeSheet, costChips, fmt, fmtTime, img, openSheet, pic, refreshSheet, RES_NAMES, toast } from './shared';
@@ -281,24 +282,25 @@ function sheetFor(): string {
   const available = isAvailable(player, tile, now);
   const slotsFree = player.marches.length < marchSlots(player);
   const size = armySize(selection);
-  const travel = size ? travelMs(world, tile, selection) / 1000 : 0;
+  const buffs = troopBuffs(player);
+  const travel = size ? travelMs(world, tile, selection, buffs.speed) / 1000 : 0;
   const pickerUnits = UNITS.map((u) => u.id);
 
   if (tile.kind === 'res') {
     const rest = remaining(player, tile, now);
-    const load = armyLoad(selection);
+    const load = armyLoad(selection, buffs.load);
     const amount = Math.min(load, rest);
     const busy = player.marches.some((m) => m.target === tile.key);
     return `
       <div class="sheet-hero">${pic(RES_TILE_IMG[tile.res!], 'sheet-img')}<div>
         <p class="kicker">Stufe ${tile.level} · ${coords}</p><h2>${RES_TILE_NAME[tile.res!]}</h2>
-        <p class="muted">${fmt(rest)} ${RES_NAMES[tile.res!]} übrig · ${gatherRate(tile.level)}/s Sammeltempo</p></div></div>
+        <p class="muted">${fmt(rest)} ${RES_NAMES[tile.res!]} übrig · ${fmt(gatherRateFor(player, tile.level))}/s Sammeltempo</p></div></div>
       <p class="tip">${pic('unit-wagon')} Tipp: Sammelwagen tragen ${unitDef('wagon').load} – so viel wie ${Math.round(unitDef('wagon').load / unitDef('brawler').load)} Schläger.</p>
       <div class="picker">${picker(player, pickerUnits)}</div>
       <div class="effects">
         <div class="effect-row"><span>Tragkraft</span><b>${fmt(load)}</b></div>
         <div class="effect-row"><span>Ertrag</span><b class="next">+${fmt(amount)} ${RES_NAMES[tile.res!]}</b></div>
-        <div class="effect-row"><span>Dauer (hin, sammeln, zurück)</span><b>${size ? fmtTime(travel * 2 + amount / gatherRate(tile.level)) : '–'}</b></div>
+        <div class="effect-row"><span>Dauer (hin, sammeln, zurück)</span><b>${size ? fmtTime(travel * 2 + amount / gatherRateFor(player, tile.level)) : '–'}</b></div>
       </div>
       <button class="btn big primary" data-action="send" data-arg="gather" ${!size || !slotsFree || busy || !available ? 'disabled' : ''}>
         ${pic('unit-wagon')} ${busy ? 'Hier sammelt schon ein Trupp' : !slotsFree ? 'Alle Marsch-Plätze belegt' : 'Sammeln schicken'}</button>`;
@@ -308,7 +310,7 @@ function sheetFor(): string {
   const bot = tile.kind === 'city' ? botOf(world, tile) : null;
   const enemy = bot ? bot.army : hordeArmy(tile.level);
   const scale = bot ? 1 : hordeScale(tile.level);
-  const prediction = size ? fight(selection, enemy, scale) : null;
+  const prediction = size ? fight(selection, enemy, scale, 1, buffs) : null;
   const reward = bot ? bot.stash : hordeReward(tile.level);
   const main = bot ? fighters(bot.army).sort((a, b) => (bot.army[b] ?? 0) - (bot.army[a] ?? 0))[0] : null;
   const counter = main && UNITS.find((u) => u.strongVs === main);

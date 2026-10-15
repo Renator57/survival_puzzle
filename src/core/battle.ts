@@ -1,7 +1,8 @@
 // Kampflogik: Treffer auf dem Spielfeld lassen den Helden der passenden Farbe angreifen.
 // Nach jedem Zug zählen die Zombies herunter und greifen bei 0 an.
 import { createBoard, playSwap, type Board, type CascadeStep, type Pos } from './board';
-import { HEROES, STAGES, ZOMBIES, heroStats, type HeroId, type ZombieKind } from './content';
+import { STAGES, ZOMBIES, type ZombieKind } from './content';
+import type { BattleHeroSetup, HeroId, SkillKind } from './heroes';
 import { createRng, type Rng } from './rng';
 
 export interface BattleHero {
@@ -10,6 +11,7 @@ export interface BattleHero {
   attack: number;
   energy: number;
   maxEnergy: number;
+  skill: { kind: SkillKind; power: number };
 }
 
 export interface Enemy {
@@ -48,23 +50,22 @@ export type BattleEvent =
 
 export interface BattleSetup {
   stageId: number;
-  heroLevels: Record<HeroId, number>;
+  team: BattleHeroSetup[]; // fünf Helden, einer pro Steinfarbe (inkl. Kombo-Boni)
   hpBonus: number; // z. B. 0.16 für +16 % durch die Schutzmauer
   seed: number;
 }
 
 export function createBattle(setup: BattleSetup): Battle {
   const rng = createRng(setup.seed);
-  const heroes = HEROES.map((def) => ({
-    id: def.id,
-    color: def.color,
-    attack: heroStats(def, setup.heroLevels[def.id]).attack,
+  const heroes = setup.team.map((t) => ({
+    id: t.id,
+    color: t.color,
+    attack: t.attack,
     energy: 0,
-    maxEnergy: def.skill.energy,
+    maxEnergy: t.maxEnergy,
+    skill: { ...t.skill },
   }));
-  const teamMaxHp = Math.round(
-    HEROES.reduce((sum, def) => sum + heroStats(def, setup.heroLevels[def.id]).hp, 0) * (1 + setup.hpBonus),
-  );
+  const teamMaxHp = Math.round(setup.team.reduce((sum, t) => sum + t.hp, 0) * (1 + setup.hpBonus));
   const battle: Battle = {
     stageId: setup.stageId,
     rng,
@@ -189,28 +190,28 @@ export function canUseSkill(battle: Battle, heroId: HeroId): boolean {
 export function useSkill(battle: Battle, heroId: HeroId): BattleEvent[] | null {
   if (!canUseSkill(battle, heroId)) return null;
   const hero = battle.heroes.find((h) => h.id === heroId)!;
-  const def = HEROES.find((h) => h.id === heroId)!;
+  const power = hero.skill.power;
   hero.energy = 0;
   const events: BattleEvent[] = [{ type: 'skill', heroId }];
-  switch (def.skill.kind) {
+  switch (hero.skill.kind) {
     case 'strike':
-      damageFront(battle, heroId, hero.attack * 6, events);
+      damageFront(battle, heroId, hero.attack * power, events);
       break;
     case 'heal':
-      heal(battle, 0.3, events);
+      heal(battle, power, events);
       break;
     case 'volley':
-      for (const e of alive(battle)) damageEnemy(heroId, e, Math.min(e.hp, hero.attack * 2.5), events);
+      for (const e of alive(battle)) damageEnemy(heroId, e, Math.min(e.hp, hero.attack * power), events);
       break;
     case 'stun':
       for (const e of alive(battle)) {
         e.countdown += 2;
-        damageEnemy(heroId, e, Math.min(e.hp, hero.attack), events);
+        damageEnemy(heroId, e, Math.min(e.hp, hero.attack * power), events);
       }
       events.push({ type: 'stun', turns: 2 });
       break;
     case 'drain':
-      damageFront(battle, heroId, hero.attack * 4, events);
+      damageFront(battle, heroId, hero.attack * power, events);
       heal(battle, 0.1, events);
       break;
   }

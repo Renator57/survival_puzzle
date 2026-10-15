@@ -1,6 +1,7 @@
 // Truppen und Armee-Kämpfe (Weltkarte). Komplett deterministisch: gleiche Armeen = gleiches Ergebnis.
 // Dadurch kann die Vorschau exakt sein und ein Server jeden Kampf nachrechnen.
 import type { Resources } from './content';
+import type { Buffs } from './heroes';
 
 export type UnitId = 'brawler' | 'shooter' | 'rider' | 'wagon';
 export type FighterId = UnitId | 'zombie';
@@ -48,7 +49,8 @@ export function counterMultiplier(attacker: FighterId, defender: FighterId): num
 
 export const fighters = (army: Army) => (Object.keys(army) as FighterId[]).filter((k) => (army[k] ?? 0) > 0);
 export const armySize = (army: Army) => fighters(army).reduce((s, k) => s + (army[k] ?? 0), 0);
-export const armyLoad = (army: Army) => fighters(army).reduce((s, k) => s + (army[k] ?? 0) * stats(k).load, 0);
+export const armyLoad = (army: Army, loadBonus = 0) =>
+  Math.floor(fighters(army).reduce((s, k) => s + (army[k] ?? 0) * stats(k).load, 0) * (1 + loadBonus));
 
 export function armySpeed(army: Army): number {
   const units = fighters(army).filter((k): k is UnitId => k !== 'zombie');
@@ -75,7 +77,7 @@ export interface FightResult {
 const ROUND_FACTOR = 0.22;
 const MAX_ROUNDS = 25;
 
-function damageTo(from: Record<string, number>, to: Record<string, number>, fromScale: number) {
+function damageTo(from: Record<string, number>, to: Record<string, number>, fromScale: number, buffs?: Buffs) {
   const out: Record<string, number> = {};
   const total = Object.values(to).reduce((a, b) => a + b, 0);
   if (total <= 0) return out;
@@ -83,26 +85,35 @@ function damageTo(from: Record<string, number>, to: Record<string, number>, from
     if (na <= 0) continue;
     for (const [d, nd] of Object.entries(to)) {
       if (nd <= 0) continue;
-      const dmg = na * stats(a as FighterId).attack * fromScale * counterMultiplier(a as FighterId, d as FighterId) * (nd / total) * ROUND_FACTOR;
+      const dmg = na * stats(a as FighterId).attack * fromScale * buff(buffs, 'attack', a as FighterId) * counterMultiplier(a as FighterId, d as FighterId) * (nd / total) * ROUND_FACTOR;
       out[d] = (out[d] ?? 0) + dmg;
     }
   }
   return out;
 }
 
-const effectiveHp = (id: FighterId, scale: number) => stats(id).hp * scale * (1 + (stats(id).defense * scale) / 40);
+// Bonus einer Einheit aus Helden-Boni (einheitenspezifisch + „alle“)
+function buff(buffs: Buffs | undefined, stat: 'attack' | 'defense' | 'hp', id: FighterId) {
+  if (!buffs || id === 'zombie') return 1;
+  return 1 + (buffs[stat][id] ?? 0) + (buffs[stat].all ?? 0);
+}
 
-export function fight(attacker: Army, defender: Army, defenderScale = 1, attackerScale = 1): FightResult {
+const effectiveHp = (id: FighterId, scale: number, buffs?: Buffs) =>
+  stats(id).hp * scale * buff(buffs, 'hp', id) * (1 + (stats(id).defense * scale * buff(buffs, 'defense', id)) / 40);
+
+export function fight(
+  attacker: Army, defender: Army, defenderScale = 1, attackerScale = 1, attackerBuffs?: Buffs, defenderBuffs?: Buffs,
+): FightResult {
   const A: Record<string, number> = Object.fromEntries(fighters(attacker).map((k) => [k, attacker[k]!]));
   const D: Record<string, number> = Object.fromEntries(fighters(defender).map((k) => [k, defender[k]!]));
   const alive = (x: Record<string, number>) => Object.values(x).reduce((a, b) => a + b, 0) >= 0.5;
   let rounds = 0;
   while (rounds < MAX_ROUNDS && alive(A) && alive(D)) {
     rounds++;
-    const toD = damageTo(A, D, attackerScale);
-    const toA = damageTo(D, A, defenderScale);
-    for (const k of Object.keys(D)) D[k] = Math.max(0, D[k] - (toD[k] ?? 0) / effectiveHp(k as FighterId, defenderScale));
-    for (const k of Object.keys(A)) A[k] = Math.max(0, A[k] - (toA[k] ?? 0) / effectiveHp(k as FighterId, attackerScale));
+    const toD = damageTo(A, D, attackerScale, attackerBuffs);
+    const toA = damageTo(D, A, defenderScale, defenderBuffs);
+    for (const k of Object.keys(D)) D[k] = Math.max(0, D[k] - (toD[k] ?? 0) / effectiveHp(k as FighterId, defenderScale, defenderBuffs));
+    for (const k of Object.keys(A)) A[k] = Math.max(0, A[k] - (toA[k] ?? 0) / effectiveHp(k as FighterId, attackerScale, attackerBuffs));
   }
   const round = (x: Record<string, number>): Army => Object.fromEntries(Object.entries(x).map(([k, v]) => [k, Math.round(v)]));
   const attackerLeft = round(A);

@@ -3,11 +3,12 @@ import '@fontsource/lilita-one';
 import '@fontsource-variable/nunito';
 import Phaser from 'phaser';
 import { createBattle } from './core/battle';
-import { STAGES, type BuildingId, type HeroId, type Resources } from './core/content';
+import { STAGES, type BuildingId, type Resources } from './core/content';
+import { battleTeam } from './core/heroes';
 import * as P from './core/player';
 import { BattleScene, HEIGHT, WIDTH, type BattleOutcome } from './game/BattleScene';
 import { BLOCK_TEXT, buildingSheet, renderBase } from './ui/base';
-import { heroSheet, renderHeroes } from './ui/heroes';
+import { renderHeroes } from './ui/heroes';
 import { renderMap, scrollMapToCurrent, stageSheet } from './ui/map';
 import { actions, app, closeSheet, costChips, fmt, openSheet, patch, pic, refreshSheet, RES_IMG, RES_NAMES, toast, updateTimers } from './ui/shared';
 import { renderTroops } from './ui/troops';
@@ -43,7 +44,9 @@ function save() {
 // ---------- Darstellung ----------
 function renderResources() {
   const cap = P.capacity(player);
-  return P.RESOURCE_IDS.map((r) => {
+  const diamonds = `<button class="res gem" data-action="tab" data-arg="heroes" title="Diamanten">
+      ${pic('ui-gem', 'res-icon')}<span class="res-val">${fmt(player.diamonds)}</span></button>`;
+  return diamonds + P.RESOURCE_IDS.map((r) => {
     const value = player.resources[r];
     return `<div class="res ${value >= cap ? 'full' : ''}" title="${RES_NAMES[r]}">
       ${pic(RES_IMG[r], 'res-icon')}
@@ -105,13 +108,6 @@ Object.assign(actions, {
     closeSheet(true);
     void startBattle(Number(arg));
   },
-  hero: (arg: string) => openSheet(() => heroSheet(player, arg as HeroId)),
-  train: (arg: string) => {
-    if (P.upgradeHero(player, arg as HeroId)) {
-      save();
-      render();
-    }
-  },
 } satisfies Record<string, (arg: string) => void>);
 
 document.addEventListener('click', (e) => {
@@ -145,7 +141,7 @@ async function startBattle(stageId: number) {
   await Promise.all([document.fonts.load('40px "Lilita One"'), document.fonts.load('20px "Nunito Variable"')]).catch(() => undefined);
   const battle = createBattle({
     stageId,
-    heroLevels: player.heroes,
+    team: battleTeam(player),
     hpBonus: P.wallBonus(player),
     seed: (Math.random() * 2 ** 32) >>> 0,
   });
@@ -174,7 +170,8 @@ function showResult(stageId: number, outcome: BattleOutcome) {
   if (outcome === 'fled') return closeBattle();
   const won = outcome === 'won';
   const firstClear = won && stageId > player.stagesCleared;
-  const reward: Resources | null = won ? P.completeStage(player, stageId) : null;
+  const result = won ? P.completeStage(player, stageId) : null;
+  const reward: Resources | null = result && { food: result.food, wood: result.wood, steel: result.steel };
   save();
   const modal = document.createElement('div');
   modal.className = 'result';
@@ -186,7 +183,7 @@ function showResult(stageId: number, outcome: BattleOutcome) {
       <p>${won
         ? firstClear ? `${STAGES[stageId - 1].name} ist befreit!` : 'Die Zone bleibt sicher.'
         : 'Die Zombies waren zu stark. Trainiere deine Helden und baue die Schutzmauer aus.'}</p>
-      ${reward ? `<div class="chips center big">${costChips(reward, undefined, '+')}</div>` : ''}
+      ${reward ? `<div class="chips center big">${costChips(reward, undefined, '+')}${result!.diamonds ? `<span class="chip gem">${pic('ui-gem')}+${result!.diamonds}</span>` : ''}</div>` : ''}
       <div class="result-actions">
         ${won && stageId < STAGES.length ? `<button class="btn big primary" data-result="next">${pic('ui-swords')} Nächstes Level</button>` : ''}
         <div class="row">

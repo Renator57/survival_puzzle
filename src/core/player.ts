@@ -2,22 +2,18 @@
 // Alle Funktionen bekommen die Uhrzeit (`now`) übergeben – so kann später der Server rechnen.
 import {
   BUILDINGS,
-  HEROES,
-  MAX_HERO_LEVEL,
   MAX_HQ_LEVEL,
   STAGES,
-  heroStats,
-  heroUpgradeCost,
   type BuildingDef,
   type BuildingId,
-  type HeroId,
   type ResourceId,
   type Resources,
 } from './content';
+import { battleTeam, newHeroState, STARTER_TEAM, upgradeHeroLevel, type HeroId, type HeroState } from './heroes';
 import { armySize, unitDef, UNITS, type Army, type UnitId } from './army';
 import { processMarches, type March, type Report, type TileState } from './world';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const RESOURCE_IDS: ResourceId[] = ['food', 'wood', 'steel'];
 
 export interface BuildingState {
@@ -38,7 +34,10 @@ export interface Player {
   version: number;
   resources: Resources;
   buildings: Record<BuildingId, BuildingState>;
-  heroes: Record<HeroId, number>;
+  heroes: Partial<Record<HeroId, HeroState>>; // nur Helden, die man besitzt
+  team: HeroId[]; // Index = Steinfarbe 0–4
+  diamonds: number; // seltene Premium-Währung
+  pity: number; // Beschwörungen seit dem letzten Legendären
   stagesCleared: number;
   troops: Record<UnitId, number>; // Einheiten zu Hause (unterwegs zählen die Märsche)
   queues: Record<TrainingBuilding, Training | null>;
@@ -60,7 +59,10 @@ export function createPlayer(now: number): Player {
     buildings: Object.fromEntries(
       BUILDINGS.map((b) => [b.id, { level: START_LEVELS[b.id], upgradeEndsAt: null }]),
     ) as Record<BuildingId, BuildingState>,
-    heroes: Object.fromEntries(HEROES.map((h) => [h.id, 1])) as Record<HeroId, number>,
+    heroes: Object.fromEntries(STARTER_TEAM.map((id) => [id, newHeroState()])),
+    team: [...STARTER_TEAM],
+    diamonds: 300,
+    pity: 0,
     stagesCleared: 0,
     troops: { brawler: 30, shooter: 30, rider: 20, wagon: 0 },
     queues: { barracks: null, workshop: null },
@@ -224,12 +226,11 @@ export const homeArmy = (player: Player): Army => ({ ...player.troops });
 export const hasTroopsHome = (player: Player) => armySize(player.troops) > 0;
 
 export function upgradeHero(player: Player, id: HeroId): boolean {
-  const level = player.heroes[id];
-  const cost = heroUpgradeCost(level);
-  if (level >= MAX_HERO_LEVEL || !canAfford(player, cost)) return false;
-  pay(player, cost);
-  player.heroes[id] = level + 1;
-  return true;
+  return upgradeHeroLevel(player, id, (cost) => {
+    if (!canAfford(player, cost)) return false;
+    pay(player, cost);
+    return true;
+  });
 }
 
 export const isStageUnlocked = (player: Player, stageId: number) => stageId <= player.stagesCleared + 1;
@@ -241,19 +242,21 @@ export function stageReward(player: Player, stageId: number): Resources {
   return { food: Math.round(base.food * f), wood: Math.round(base.wood * f), steel: Math.round(base.steel * f) };
 }
 
-export function completeStage(player: Player, stageId: number): Resources {
+// Diamanten gibt es nur beim ersten Sieg – sie sollen selten sein.
+export const stageDiamonds = (stageId: number) => (STAGES[stageId - 1].waves.flat().includes('boss') ? 50 : 15);
+
+export function completeStage(player: Player, stageId: number): Resources & { diamonds: number } {
   const reward = stageReward(player, stageId);
+  const diamonds = stageId > player.stagesCleared ? stageDiamonds(stageId) : 0;
   for (const r of RESOURCE_IDS) player.resources[r] += reward[r];
+  player.diamonds += diamonds;
   player.stagesCleared = Math.max(player.stagesCleared, stageId);
-  return reward;
+  return { ...reward, diamonds };
 }
 
 // Kampfkraft des Teams (Angriff zählt 10-fach, dazu Lebenspunkte und Mauer-Bonus).
 export function teamPower(player: Player): number {
-  const raw = HEROES.reduce((sum, h) => {
-    const s = heroStats(h, player.heroes[h.id]);
-    return sum + s.attack * 10 + s.hp;
-  }, 0);
+  const raw = battleTeam(player).reduce((sum, h) => sum + h.attack * 10 + h.hp, 0);
   return Math.round((raw / 10) * (1 + wallBonus(player)));
 }
 
@@ -269,12 +272,19 @@ export function serialize(player: Player): string {
 export function deserialize(json: string, now: number): Player {
   const data = JSON.parse(json) as Partial<Player>;
   const fresh = createPlayer(now);
+  // Alte Spielstände (Version 1) speicherten nur die Stufe pro Held
+  if (data.heroes) {
+    for (const [id, v] of Object.entries(data.heroes as Record<string, unknown>)) {
+      if (typeof v === 'number') data.heroes[id] = { ...newHeroState(), level: v };
+    }
+  }
   return {
     ...fresh,
     ...data,
     resources: { ...fresh.resources, ...data.resources },
     buildings: { ...fresh.buildings, ...data.buildings },
     heroes: { ...fresh.heroes, ...data.heroes },
+    team: data.team?.length === 5 ? data.team : fresh.team,
     troops: { ...fresh.troops, ...data.troops },
     queues: { ...fresh.queues, ...data.queues },
     world: { ...fresh.world, ...data.world },

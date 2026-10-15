@@ -1,41 +1,4 @@
-// Spielinhalte: Helden, Zombies, Gebäude, Level. Hier wird das Balancing eingestellt.
-
-export type HeroId = 'rex' | 'mara' | 'ivy' | 'bolt' | 'nyx';
-export type SkillKind = 'strike' | 'heal' | 'volley' | 'stun' | 'drain';
-
-export interface HeroDef {
-  id: HeroId;
-  name: string;
-  role: string;
-  color: number; // Index der Steinfarbe auf dem Spielfeld
-  baseAttack: number;
-  baseHp: number;
-  skill: { kind: SkillKind; name: string; text: string; energy: number };
-}
-
-export const HEROES: HeroDef[] = [
-  { id: 'rex', name: 'Rex', role: 'Nahkämpfer', color: 0, baseAttack: 34, baseHp: 260,
-    skill: { kind: 'strike', name: 'Vorschlaghammer', text: '6-facher Schaden am vordersten Zombie.', energy: 12 } },
-  { id: 'mara', name: 'Mara', role: 'Sanitäterin', color: 1, baseAttack: 20, baseHp: 220,
-    skill: { kind: 'heal', name: 'Erste Hilfe', text: 'Heilt das Team um 30 %.', energy: 12 } },
-  { id: 'ivy', name: 'Ivy', role: 'Scharfschützin', color: 2, baseAttack: 30, baseHp: 180,
-    skill: { kind: 'volley', name: 'Kugelhagel', text: '2,5-facher Schaden an allen Zombies.', energy: 14 } },
-  { id: 'bolt', name: 'Bolt', role: 'Techniker', color: 3, baseAttack: 24, baseHp: 240,
-    skill: { kind: 'stun', name: 'Elektrozaun', text: 'Alle Zombies verlieren 2 Züge und nehmen Schaden.', energy: 12 } },
-  { id: 'nyx', name: 'Nyx', role: 'Jägerin', color: 4, baseAttack: 28, baseHp: 200,
-    skill: { kind: 'drain', name: 'Lebensraub', text: '4-facher Schaden, heilt das Team um 10 %.', energy: 12 } },
-];
-
-export const MAX_HERO_LEVEL = 30;
-
-export function heroStats(def: HeroDef, level: number) {
-  const f = 1.12 ** (level - 1);
-  return { attack: Math.round(def.baseAttack * f), hp: Math.round(def.baseHp * f) };
-}
-
-export function heroUpgradeCost(level: number) {
-  return { food: Math.round(80 * 1.32 ** level), wood: Math.round(40 * 1.32 ** level), steel: 0 };
-}
+// Spielinhalte: Zombies, Gebäude, Level. Hier wird das Balancing eingestellt (Helden: heroes.ts, Truppen: army.ts).
 
 export type ZombieKind = 'walker' | 'runner' | 'brute' | 'spitter' | 'boss';
 
