@@ -6,6 +6,7 @@ import {
   MAX_HERO_LEVEL,
   MAX_HQ_LEVEL,
   STAGES,
+  heroStats,
   heroUpgradeCost,
   type BuildingDef,
   type BuildingId,
@@ -48,19 +49,21 @@ export function createPlayer(now: number): Player {
 
 const def = (id: BuildingId) => BUILDINGS.find((b) => b.id === id)!;
 
+// Werte einer bestimmten Stufe – für Anzeigen wie „aktuell → nächste Stufe“.
+export const capacityAt = (warehouseLevel: number) => Math.round(2000 * 1.6 ** (warehouseLevel - 1));
+export const rateAt = (b: BuildingDef, level: number) => (level > 0 && b.rate ? b.rate * level * 1.18 ** (level - 1) : 0);
+export const wallBonusAt = (level: number) => level * 0.08;
+
 export function capacity(player: Player): number {
-  return Math.round(2000 * 1.6 ** (player.buildings.warehouse.level - 1));
+  return capacityAt(player.buildings.warehouse.level);
 }
 
 export function productionRate(player: Player, resource: ResourceId): number {
-  return BUILDINGS.filter((b) => b.produces === resource).reduce((sum, b) => {
-    const level = player.buildings[b.id].level;
-    return sum + (level > 0 ? b.rate! * level * 1.18 ** (level - 1) : 0);
-  }, 0);
+  return BUILDINGS.filter((b) => b.produces === resource).reduce((sum, b) => sum + rateAt(b, player.buildings[b.id].level), 0);
 }
 
 export function wallBonus(player: Player): number {
-  return player.buildings.wall.level * 0.08;
+  return wallBonusAt(player.buildings.wall.level);
 }
 
 export function maxLevel(player: Player, id: BuildingId): number {
@@ -151,8 +154,18 @@ export function completeStage(player: Player, stageId: number): Resources {
   return reward;
 }
 
+// Kampfkraft des Teams (Angriff zählt 10-fach, dazu Lebenspunkte und Mauer-Bonus).
 export function teamPower(player: Player): number {
-  return HEROES.reduce((sum, h) => sum + player.heroes[h.id] * 100, 0) + player.buildings.wall.level * 50;
+  const raw = HEROES.reduce((sum, h) => {
+    const s = heroStats(h, player.heroes[h.id]);
+    return sum + s.attack * 10 + s.hp;
+  }, 0);
+  return Math.round((raw / 10) * (1 + wallBonus(player)));
+}
+
+// Grob aus Kampfsimulationen abgeleitet: ab dieser Stärke ist ein Level gut schaffbar.
+export function recommendedPower(stageId: number): number {
+  return Math.round(123 * STAGES[stageId - 1].scale);
 }
 
 export function serialize(player: Player): string {

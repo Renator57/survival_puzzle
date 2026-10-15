@@ -11,17 +11,16 @@ const TILE = 96;
 const BOARD_X = (WIDTH - COLS * TILE) / 2;
 const BOARD_Y = 660;
 const GROUND_Y = 410;
-const FONT = 'system-ui, "Segoe UI", Roboto, sans-serif';
+const FONT = '"Lilita One", system-ui, sans-serif';
 
 export const TILE_COLORS = ['#ef4b4b', '#3d8bfd', '#3fcf6b', '#ffc531', '#a66bff'];
 const SPECIALS: Special[] = ['none', 'row', 'col', 'bomb'];
-const HERO_ICONS: Record<HeroId, string> = { rex: '🪓', mara: '💉', ivy: '🎯', bolt: '⚡', nyx: '🗡️' };
-const ZOMBIE_LOOK: Record<ZombieKind, { icon: string; tint?: number }> = {
-  walker: { icon: '🧟' },
-  runner: { icon: '🧟‍♀️' },
-  brute: { icon: '🧟‍♂️', tint: 0xc8b0a0 },
-  spitter: { icon: '🧟', tint: 0xa8ff9a },
-  boss: { icon: '🧟‍♂️', tint: 0xff8a7a },
+const ZOMBIE_LOOK: Record<ZombieKind, { key: string; tint?: number }> = {
+  walker: { key: 'zombie-walker' },
+  runner: { key: 'zombie-runner' },
+  brute: { key: 'zombie-brute', tint: 0xd8c0b0 },
+  spitter: { key: 'zombie-walker', tint: 0xb0ff90 },
+  boss: { key: 'zombie-boss' },
 };
 
 const hex = (css: string) => parseInt(css.slice(1), 16);
@@ -34,7 +33,7 @@ function shade(css: string, amount: number): string {
 
 const cellX = (col: number) => BOARD_X + col * TILE + TILE / 2;
 const cellY = (row: number) => BOARD_Y + row * TILE + TILE / 2;
-const tileKey = (t: Pick<Tile, 'color' | 'special'>) => `tile-${t.color}-${t.special}`;
+const tileKey = (t: Pick<Tile, 'color' | 'special'>) => `gem-${t.color}-${t.special}`;
 
 export type BattleOutcome = 'won' | 'lost' | 'fled';
 
@@ -47,7 +46,7 @@ export interface BattleSceneData {
 interface EnemyView {
   uid: number;
   container: Phaser.GameObjects.Container;
-  body: Phaser.GameObjects.Text;
+  body: Phaser.GameObjects.Image;
   hpFill: Phaser.GameObjects.Rectangle;
   countText: Phaser.GameObjects.Text;
   hp: number;
@@ -101,6 +100,13 @@ export class BattleScene extends Phaser.Scene {
     this.selected = null;
   }
 
+  preload() {
+    for (const def of HEROES) this.load.image(`hero-${def.id}`, `img/hero-${def.id}.webp`);
+    for (const kind of ['walker', 'runner', 'brute', 'boss']) this.load.image(`zombie-${kind}`, `img/zombie-${kind}.webp`);
+    for (let c = 0; c < TILE_COLORS.length; c++) this.load.image(`tile-${c}`, `img/tile-${c}.webp`);
+    this.load.image('ui-boom', 'img/ui-boom.webp');
+  }
+
   create() {
     this.makeTextures();
     this.add.image(0, 0, 'backdrop').setOrigin(0);
@@ -119,7 +125,9 @@ export class BattleScene extends Phaser.Scene {
         const key = tileKey({ color: c, special });
         if (this.textures.exists(key)) continue;
         const tex = this.textures.createCanvas(key, TILE, TILE)!;
-        drawTile(tex.getContext(), c, special);
+        const icon = this.textures.get(`tile-${c}`).getSourceImage() as HTMLImageElement;
+        const boom = this.textures.get('ui-boom').getSourceImage() as HTMLImageElement;
+        drawTile(tex.getContext(), c, special, icon, boom);
         tex.refresh();
       }
     }
@@ -133,7 +141,7 @@ export class BattleScene extends Phaser.Scene {
   private createHud() {
     const stage = STAGES[this.battle.stageId - 1];
     this.add.text(WIDTH / 2, 34, `${this.battle.stageId}. ${stage.name}`, {
-      fontFamily: FONT, fontSize: '30px', fontStyle: 'bold', color: '#ffffff', stroke: '#000000', strokeThickness: 6,
+      fontFamily: FONT, fontSize: '30px', color: '#ffffff', stroke: '#000000', strokeThickness: 6,
     }).setOrigin(0.5);
     this.waveText = this.add.text(WIDTH / 2, 72, '', {
       fontFamily: FONT, fontSize: '22px', color: '#ffd27a', stroke: '#000000', strokeThickness: 5,
@@ -151,7 +159,7 @@ export class BattleScene extends Phaser.Scene {
     this.add.rectangle(WIDTH / 2, barY, 640, 30, 0x000000, 0.65).setStrokeStyle(2, 0xffffff, 0.25);
     this.teamFill = this.add.rectangle(WIDTH / 2 - 316, barY, 632, 22, 0x3fcf6b).setOrigin(0, 0.5);
     this.teamText = this.add.text(WIDTH / 2, barY, '', {
-      fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: '#ffffff', stroke: '#000000', strokeThickness: 4,
+      fontFamily: FONT, fontSize: '18px', color: '#ffffff', stroke: '#000000', strokeThickness: 4,
     }).setOrigin(0.5);
     this.teamHpShown = this.battle.teamHp;
 
@@ -175,7 +183,7 @@ export class BattleScene extends Phaser.Scene {
       const container = this.add.container(walkIn ? x + 500 : x, GROUND_Y);
 
       const shadow = this.add.ellipse(0, 0, 100 * size, 22 * size, 0x000000, 0.45);
-      const body = this.add.text(0, 6, look.icon, { fontFamily: FONT, fontSize: `${Math.round(118 * size)}px` }).setOrigin(0.5, 1);
+      const body = this.add.image(0, 8, look.key).setOrigin(0.5, 1).setDisplaySize(150 * size, 150 * size);
       if (look.tint) body.setTint(look.tint);
       const barWidth = 100 * Math.max(1, size * 0.9);
       const hpBg = this.add.rectangle(0, 22, barWidth + 4, 14, 0x000000, 0.75);
@@ -183,7 +191,7 @@ export class BattleScene extends Phaser.Scene {
       const badgeY = -132 * size - 14;
       const badge = this.add.circle(0, badgeY, 20, 0x2a0d10).setStrokeStyle(3, 0xff6b5a);
       const countText = this.add.text(0, badgeY, '', {
-        fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: '#ffffff',
+        fontFamily: FONT, fontSize: '22px', color: '#ffffff',
       }).setOrigin(0.5);
       container.add([shadow, body, hpBg, hpFill, badge, countText]);
 
@@ -207,13 +215,13 @@ export class BattleScene extends Phaser.Scene {
       const container = this.add.container(x, y).setDepth(11);
       const base = this.add.circle(0, 0, 50, 0x1a1d26);
       const inner = this.add.circle(0, 0, 40, color, 0.9);
-      const icon = this.add.text(0, 2, HERO_ICONS[def.id], { fontFamily: FONT, fontSize: '40px' }).setOrigin(0.5);
+      const icon = this.add.image(0, 2, `hero-${def.id}`).setDisplaySize(78, 78);
       const ring = this.add.graphics();
       const name = this.add.text(0, 66, def.name, {
-        fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: '#e8e8f0',
+        fontFamily: FONT, fontSize: '20px', color: '#f1f2f7', stroke: '#000000', strokeThickness: 4,
       }).setOrigin(0.5);
       const ready = this.add.text(0, -62, 'BEREIT', {
-        fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: '#1a1200', backgroundColor: '#ffd27a', padding: { x: 6, y: 2 },
+        fontFamily: FONT, fontSize: '17px', color: '#2a1503', backgroundColor: '#ffc048', padding: { x: 8, y: 2 },
       }).setOrigin(0.5).setVisible(false);
       container.add([base, inner, icon, ring, name, ready]);
       container.setSize(110, 110).setInteractive({ useHandCursor: true });
@@ -531,14 +539,14 @@ export class BattleScene extends Phaser.Scene {
 
   private floatText(x: number, y: number, text: string, color: string, size = 34) {
     const t = this.add.text(x, y, text, {
-      fontFamily: FONT, fontSize: `${size}px`, fontStyle: 'bold', color, stroke: '#000000', strokeThickness: 6,
+      fontFamily: FONT, fontSize: `${size}px`, color, stroke: '#000000', strokeThickness: 6,
     }).setOrigin(0.5).setDepth(20);
     this.tweens.add({ targets: t, y: y - 70, alpha: 0, duration: 800, ease: 'Cubic.easeOut', onComplete: () => t.destroy() });
   }
 
   private async banner(text: string, color: string) {
     const t = this.add.text(WIDTH / 2, 260, text, {
-      fontFamily: FONT, fontSize: '64px', fontStyle: 'bold', color, stroke: '#000000', strokeThickness: 10,
+      fontFamily: FONT, fontSize: '64px', color, stroke: '#000000', strokeThickness: 10,
     }).setOrigin(0.5).setDepth(30).setScale(0.3).setAlpha(0);
     await this.tween({ targets: t, scale: 1, alpha: 1, duration: 260, ease: 'Back.easeOut' });
     await this.wait(380);
@@ -563,89 +571,64 @@ export class BattleScene extends Phaser.Scene {
 }
 
 // ---------- Canvas-Zeichnungen ----------
-function drawTile(ctx: CanvasRenderingContext2D, color: number, special: Special) {
+function drawTile(ctx: CanvasRenderingContext2D, color: number, special: Special, icon: HTMLImageElement, boom: HTMLImageElement) {
   const base = TILE_COLORS[color];
   const s = TILE;
-  const pad = 6;
+  const pad = 5;
 
-  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
   ctx.beginPath();
-  ctx.roundRect(pad, pad + 5, s - pad * 2, s - pad * 2, 20);
+  ctx.roundRect(pad, pad + 5, s - pad * 2, s - pad * 2, 22);
   ctx.fill();
 
   const grad = ctx.createLinearGradient(0, pad, 0, s - pad);
-  grad.addColorStop(0, shade(base, 45));
-  grad.addColorStop(1, shade(base, -45));
+  grad.addColorStop(0, shade(base, 55));
+  grad.addColorStop(0.55, base);
+  grad.addColorStop(1, shade(base, -55));
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.roundRect(pad, pad, s - pad * 2, s - pad * 2 - 2, 20);
+  ctx.roundRect(pad, pad, s - pad * 2, s - pad * 2 - 2, 22);
   ctx.fill();
 
-  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  // Glanz und heller Rand
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  const gloss = ctx.createLinearGradient(0, pad, 0, s / 2);
+  gloss.addColorStop(0, 'rgba(255,255,255,0.35)');
+  gloss.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = gloss;
   ctx.beginPath();
-  ctx.roundRect(pad + 8, pad + 5, s - pad * 2 - 16, 26, 12);
+  ctx.roundRect(pad + 6, pad + 4, s - pad * 2 - 12, s / 2 - 10, 16);
   ctx.fill();
 
   if (special === 'row' || special === 'col') {
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    for (const o of [-22, 22]) {
-      if (special === 'row') ctx.fillRect(pad + 4, s / 2 + o - 4, s - pad * 2 - 8, 8);
-      else ctx.fillRect(s / 2 + o - 4, pad + 4, 8, s - pad * 2 - 8);
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.shadowColor = '#ffffff';
+    ctx.shadowBlur = 10;
+    for (const o of [-26, 26]) {
+      if (special === 'row') ctx.fillRect(pad + 4, s / 2 + o - 3, s - pad * 2 - 8, 6);
+      else ctx.fillRect(s / 2 + o - 3, pad + 4, 6, s - pad * 2 - 8);
     }
+    ctx.shadowBlur = 0;
   }
   if (special === 'bomb') {
-    ctx.fillStyle = 'rgba(20,10,30,0.75)';
-    ctx.beginPath();
-    ctx.arc(s / 2, s / 2, 30, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 4;
-    ctx.stroke();
+    const glow = ctx.createRadialGradient(s / 2, s / 2, 6, s / 2, s / 2, 42);
+    glow.addColorStop(0, 'rgba(255,240,180,0.95)');
+    glow.addColorStop(1, 'rgba(255,140,40,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, s, s);
   }
 
+  // 3D-Symbol des Helden
+  const size = special === 'none' ? 60 : 54;
   ctx.save();
-  ctx.translate(s / 2, s / 2);
-  ctx.shadowColor = 'rgba(0,0,0,0.45)';
-  ctx.shadowOffsetY = 3;
-  ctx.shadowBlur = 4;
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  drawSymbol(ctx, color, special === 'none' ? 1 : 0.75);
-  ctx.fill();
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowOffsetY = 4;
+  ctx.shadowBlur = 5;
+  ctx.drawImage(icon, (s - size) / 2, (s - size) / 2 - 1, size, size);
   ctx.restore();
-}
-
-function drawSymbol(ctx: CanvasRenderingContext2D, color: number, k: number) {
-  const pts = (list: number[][]) => {
-    list.forEach(([x, y], i) => (i ? ctx.lineTo(x * k, y * k) : ctx.moveTo(x * k, y * k)));
-    ctx.closePath();
-  };
-  switch (color) {
-    case 0: // Klinge – Rex
-      pts([[0, -24], [20, 0], [0, 24], [-20, 0]]);
-      break;
-    case 1: // Kreuz – Mara
-      pts([[-7, -22], [7, -22], [7, -7], [22, -7], [22, 7], [7, 7], [7, 22], [-7, 22], [-7, 7], [-22, 7], [-22, -7], [-7, -7]]);
-      break;
-    case 2: // Zielscheibe – Ivy
-      ctx.arc(0, 0, 21 * k, 0, Math.PI * 2);
-      ctx.moveTo(10 * k, 0);
-      ctx.arc(0, 0, 10 * k, 0, Math.PI * 2, true);
-      break;
-    case 3: // Blitz – Bolt
-      pts([[6, -25], [-16, 4], [-2, 4], [-8, 25], [16, -6], [2, -6]]);
-      break;
-    default: {
-      // Stern – Nyx
-      const list: number[][] = [];
-      for (let i = 0; i < 10; i++) {
-        const r = i % 2 ? 10 : 24;
-        const a = -Math.PI / 2 + (i * Math.PI) / 5;
-        list.push([Math.cos(a) * r, Math.sin(a) * r]);
-      }
-      pts(list);
-    }
-  }
+  if (special === 'bomb') ctx.drawImage(boom, s - 40, 4, 34, 34);
 }
 
 function drawBackdrop(ctx: CanvasRenderingContext2D) {

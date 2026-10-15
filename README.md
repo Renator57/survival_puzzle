@@ -3,9 +3,9 @@
 Handy-Spiel im Stil von *Puzzles & Survival*: **Match-3-Kämpfe gegen Zombie-Wellen** und
 **Basisbau** mit Rohstoffen, Bauzeiten und Helden-Training.
 
-| Kampf | Basis | Helden |
-| --- | --- | --- |
-| ![Kampf](docs/kampf.png) | ![Basis](docs/basis.png) | ![Helden](docs/helden.png) |
+| Kampf | Basis | Karte | Helden |
+| --- | --- | --- | --- |
+| ![Kampf](docs/kampf.png) | ![Basis](docs/basis.png) | ![Karte](docs/karte.png) | ![Helden](docs/helden.png) |
 
 ## Spielprinzip
 
@@ -42,6 +42,11 @@ tests/         Tests der Spielregeln
 ```
 
 Balancing (Helden, Zombies, Gebäude, Level) steht komplett in `src/core/content.ts`.
+
+### Grafiken und Schriften
+
+- 3D-Grafiken: [Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji) (MIT), Lizenz in `public/img/LICENSE.txt`
+- Schriften: Lilita One und Nunito (SIL Open Font License) über Fontsource
 
 ## Entwickeln
 

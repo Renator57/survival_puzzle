@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#0d0f14" />
+    <link rel="icon" href="img/zombie-walker.webp" />
     <title>Survival Puzzle</title>
   </head>
   <body>
@@ -11,9 +12,9 @@
       <header id="resbar" class="resbar"></header>
       <main id="screen" class="screen"></main>
       <nav class="tabs">
-        <button data-tab="base"><span>🏚️</span>Basis</button>
-        <button data-tab="map"><span>🗺️</span>Kampf</button>
-        <button data-tab="heroes"><span>🦸</span>Helden</button>
+        <button data-action="tab" data-arg="base"><img src="img/b-hq.webp" alt="" />Basis</button>
+        <button data-action="tab" data-arg="map" class="tab-main"><span class="tab-orb"><img src="img/ui-swords.webp" alt="" /></span>Kampf</button>
+        <button data-action="tab" data-arg="heroes"><img src="img/hero-rex.webp" alt="" />Helden</button>
       </nav>
     </div>
     <div id="battle-layer" hidden></div>
