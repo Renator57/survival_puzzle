@@ -15,6 +15,7 @@ import { processMarches, type March, type Report, type TileState } from './world
 import { emptyQuestState, emptyStats, rollDay, type QuestState, type Stats } from './quests';
 import { emptyEventState, rollEvents, type EventState } from './events';
 import { completeFacilities, techValue, type ItemId, type TechId } from './facilities';
+import { rollGear, type GearItem } from './gear';
 
 export const SAVE_VERSION = 2;
 export const RESOURCE_IDS: ResourceId[] = ['food', 'wood', 'steel'];
@@ -58,6 +59,7 @@ export interface Player {
   wounded: Army;
   healing: { units: Army; startAt: number; endsAt: number } | null;
   items: Partial<Record<ItemId, number>>;
+  gear: GearItem[]; // Ausrüstung im Inventar (angelegte liegen beim Helden)
   nextId: number;
   lastUpdate: number;
 }
@@ -93,6 +95,7 @@ export function createPlayer(now: number): Player {
     wounded: {},
     healing: null,
     items: { speed5m: 3, speed1h: 1 },
+    gear: [],
     nextId: 1,
     lastUpdate: now,
   };
@@ -294,11 +297,11 @@ export function completeStage(player: Player, stageId: number, stars = 1): Resou
 }
 
 // ---------- Sterne-Truhen ----------
-export const STAR_CHESTS: { stars: number; reward: Resources & { diamonds: number } }[] = [
-  { stars: 9, reward: { food: 2000, wood: 2000, steel: 300, diamonds: 30 } },
-  { stars: 24, reward: { food: 5000, wood: 5000, steel: 1000, diamonds: 60 } },
-  { stars: 45, reward: { food: 12000, wood: 12000, steel: 3000, diamonds: 100 } },
-  { stars: 72, reward: { food: 30000, wood: 30000, steel: 8000, diamonds: 250 } },
+export const STAR_CHESTS: { stars: number; reward: Resources & { diamonds: number; gear: number } }[] = [
+  { stars: 9, reward: { food: 2000, wood: 2000, steel: 300, diamonds: 30, gear: 1 } },
+  { stars: 24, reward: { food: 5000, wood: 5000, steel: 1000, diamonds: 60, gear: 1 } },
+  { stars: 45, reward: { food: 12000, wood: 12000, steel: 3000, diamonds: 100, gear: 2 } },
+  { stars: 72, reward: { food: 30000, wood: 30000, steel: 8000, diamonds: 250, gear: 3 } },
 ];
 
 export const totalStars = (player: Player) => Object.values(player.stageStars).reduce((a, b) => a + b, 0);
@@ -309,6 +312,7 @@ export function claimStarChest(player: Player, index: number): boolean {
   player.starChests.push(index);
   for (const r of RESOURCE_IDS) player.resources[r] += chest.reward[r];
   player.diamonds += chest.reward.diamonds;
+  for (let i = 0; i < chest.reward.gear; i++) rollGear(player, Math.random, [0.4, 0.45, 0.15]);
   return true;
 }
 
@@ -354,6 +358,7 @@ export function deserialize(json: string, now: number): Player {
     wounded: { ...data.wounded },
     healing: data.healing ?? null,
     items: data.items ?? fresh.items,
+    gear: data.gear ?? [],
     version: SAVE_VERSION,
   };
 }

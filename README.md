@@ -16,7 +16,12 @@ Handy-Spiel im Stil von *Puzzles & Survival*: **Match-3-Kämpfe gegen Zombie-Wel
   - 4 in einer Reihe → **Linienstein** (räumt eine Reihe/Spalte), 5 in einer Reihe oder L/T-Form → **Bombe** (3×3)
   - Die Zahl über jedem Zombie zeigt, in wie vielen Zügen er angreift.
   - Getroffene Steine laden die Helden auf. Volle Helden antippen → **Fähigkeit** (kostet keinen Zug).
-- **Basis:** Farm, Sägewerk und Stahlwerk produzieren auch offline. Das Lager begrenzt die Menge,
+- **Kampf-Extras:** Panzer-Zombies (Schild), Explodierer (werfen Kisten), Seuchen-Doktoren (heilen),
+  Kisten und Eis auf dem Feld, 1–3 Sterne pro Level mit Sterne-Truhen.
+- **Events:** täglicher Titan-Angriff (15 Züge, Schaden zählt, 6 Belohnungsstufen) und Dungeons je Wochentag
+  (Stahl-Labor, Holzfäller-Lager, Helden-Friedhof) mit 3 Schwierigkeiten.
+- **Basis:** Farm, Sägewerk und Stahlwerk produzieren auch offline.
+  Forschungszentrum mit 11 Technologien, Lazarett für verletzte Soldaten, Beschleuniger und Inventar. Das Lager begrenzt die Menge,
   die Schutzmauer gibt mehr Lebenspunkte im Kampf. Das Hauptquartier begrenzt die Stufe aller Gebäude.
 - **Helden:** 21 Helden in 4 Seltenheiten (Gewöhnlich, Episch, Legendär, Mythisch) und 4 Fraktionen.
   - Team aus 5 Helden, je einer pro Steinfarbe.
@@ -26,6 +31,8 @@ Handy-Spiel im Stil von *Puzzles & Survival*: **Match-3-Kämpfe gegen Zombie-Wel
   - **Sterne** über Splitter aus doppelten Helden.
   - **Beschwörung** mit seltenen Diamanten (5 % legendär, garantiert nach 40), mit Portal- und Karten-Animation.
   - **Mythische Helden** nur im Shop (Echtgeld – wird mit dem Server freigeschaltet).
+  - **Ausrüstung** (Waffe, Rüstung, Helm) in 3 Seltenheiten, aufwertbar bis Stufe 20, Schmiede, Zerlegen.
+  - **Erwachen** ab 5 Sternen: +25 % Werte, +30 % Fähigkeit, stärkere Truppen-Boni, goldener Rahmen.
 - **Karte:** 24 Level, alle 4 Level ein Boss.
 - **Truppen:** Schläger, Schützen und Fahrer aus der Kaserne – mit Konter-Dreieck
   (Schläger > Fahrer > Schützen > Schläger, +50 % Schaden). Sammelwagen aus der Werkstatt
@@ -53,7 +60,8 @@ zu Grafik oder Browser. Dieselben Dateien können später unverändert auf einem
 festen Zufalls-Seed, sodass der Server jeden Kampf nachrechnen und Schummeln erkennen kann.
 
 ```
-src/core/      Spielregeln (Server-tauglich): board.ts, battle.ts, player.ts, content.ts, army.ts, world.ts, heroes.ts, quests.ts
+src/core/      Spielregeln (Server-tauglich): board.ts, battle.ts, player.ts, content.ts, army.ts, world.ts,
+               heroes.ts, quests.ts, events.ts, facilities.ts, gear.ts
 src/audio.ts   Musik und Soundeffekte (Web Audio)
 src/game/      Phaser-Kampfszene (nur Darstellung)
 src/main.ts    Menüs, Speichern, Navigation
@@ -109,4 +117,7 @@ das Apple Developer Program (99 $/Jahr).
 5. **Mehrspieler-Server**: Konten, Weltkarte mit echten Spielern, Allianzen, Chat, Ranglisten,
    Angriffe zwischen Spielern, Kämpfe werden vom Server berechnet
 6. ~~Musik und Sound, Tutorial (Hauptaufgaben), Tagesaufgaben, Login-Belohnung, Einstellungen~~ ✅
-7. Shop mit echten In-App-Käufen (Google Play / App Store) – braucht den Server
+7. ~~Spezial-Zombies, Hindernisse, Sterne, Titan-Event, Dungeons, Forschung, Lazarett, Beschleuniger,
+   Ausrüstung, Erwachen~~ ✅
+8. **Mehrspieler-Server** (Nakama): Konten, Cloud-Spielstand, echte Spieler auf der Weltkarte, Allianzen, Chat, Ranglisten
+9. Shop mit echten In-App-Käufen (Google Play / App Store) – braucht den Server

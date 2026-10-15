@@ -2,6 +2,7 @@
 import { STAGES, type Resources } from './content';
 import { heroDef, type Faction } from './heroes';
 import type { ItemId } from './facilities';
+import { rollGear } from './gear';
 import type { Player } from './player';
 
 export interface Stats {
@@ -19,7 +20,7 @@ export const emptyStats = (): Stats => ({
   battlesWon: 0, trained: 0, gathered: 0, hordes: 0, plunders: 0, upgrades: 0, heroTrains: 0, summons: 0,
 });
 
-export type Reward = Partial<Resources> & { diamonds?: number; items?: Partial<Record<ItemId, number>> };
+export type Reward = Partial<Resources> & { diamonds?: number; items?: Partial<Record<ItemId, number>>; gear?: number };
 export type GoTo = 'base' | 'troops' | 'map' | 'world' | 'heroes';
 
 export interface MainQuest {
@@ -133,6 +134,7 @@ export function grant(p: Player, reward: Reward) {
   for (const r of ['food', 'wood', 'steel'] as const) p.resources[r] += reward[r] ?? 0;
   p.diamonds += reward.diamonds ?? 0;
   for (const [k, n] of Object.entries(reward.items ?? {})) p.items[k as ItemId] = (p.items[k as ItemId] ?? 0) + n!;
+  for (let i = 0; i < (reward.gear ?? 0); i++) rollGear(p);
 }
 
 export function claimMain(p: Player): Reward | null {

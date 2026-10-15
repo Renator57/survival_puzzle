@@ -3,6 +3,7 @@
 import type { StageDef, ZombieKind } from './content';
 import { heroDef, type HeroId } from './heroes';
 import type { Player } from './player';
+import { rollGear, type GearItem } from './gear';
 import { dayKey, grant, type Reward } from './quests';
 
 export const BOSS_TRIES = 3;
@@ -31,10 +32,10 @@ const progressScale = (p: Player) => 1.17 ** Math.max(0, p.stagesCleared - 1);
 export const BOSS_TIERS: { damage: number; reward: Reward }[] = [
   { damage: 300, reward: { food: 800, wood: 800 } },
   { damage: 900, reward: { steel: 300, diamonds: 5, items: { speed5m: 2 } } },
-  { damage: 2200, reward: { food: 2000, wood: 2000, diamonds: 10 } },
+  { damage: 2200, reward: { food: 2000, wood: 2000, diamonds: 10, gear: 1 } },
   { damage: 4500, reward: { steel: 1000, diamonds: 15, items: { speed1h: 1 } } },
   { damage: 9000, reward: { food: 5000, wood: 5000, diamonds: 25 } },
-  { damage: 18000, reward: { steel: 3000, diamonds: 40 } },
+  { damage: 18000, reward: { steel: 3000, diamonds: 40, gear: 1 } },
 ];
 
 export const bossTierDamage = (p: Player, i: number) => Math.round(BOSS_TIERS[i].damage * progressScale(p));
@@ -65,7 +66,7 @@ export function finishBoss(p: Player, damage: number): { reward: Reward; tiers: 
 }
 
 function addReward(into: Reward, r: Reward) {
-  for (const k of ['food', 'wood', 'steel', 'diamonds'] as const) if (r[k]) into[k] = (into[k] ?? 0) + r[k]!;
+  for (const k of ['food', 'wood', 'steel', 'diamonds', 'gear'] as const) if (r[k]) into[k] = (into[k] ?? 0) + r[k]!;
   for (const [k, n] of Object.entries(r.items ?? {})) {
     into.items ??= {};
     into.items[k as keyof typeof into.items] = (into.items[k as keyof typeof into.items] ?? 0) + n!;
@@ -125,5 +126,8 @@ export function finishDungeon(p: Player, id: DungeonId, diff: number, won: boole
     p.heroes[pick]!.shards += shards;
     shardHero = pick;
   }
-  return { reward, shards: shards ?? 0, shardHero };
+  // Ausrüstung: Chance steigt mit der Schwierigkeit
+  let gear: GearItem | null = null;
+  if (random() < [0.3, 0.5, 0.8][diff]) gear = rollGear(p, random, [[0.7, 0.27, 0.03], [0.5, 0.42, 0.08], [0.3, 0.52, 0.18]][diff]);
+  return { reward, shards: shards ?? 0, shardHero, gear };
 }

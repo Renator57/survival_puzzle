@@ -267,7 +267,9 @@ export class BattleScene extends Phaser.Scene {
       const y = 556;
       const color = hex(TILE_COLORS[def.color]);
       const container = this.add.container(x, y).setDepth(11);
-      const base = this.add.circle(0, 0, 50, 0x1a1d26).setStrokeStyle(4, hex(RARITY_COLORS[def.rarity]));
+      const awakened = !!this.battle.awakened?.includes(hero.id);
+      const base = this.add.circle(0, 0, 50, 0x1a1d26).setStrokeStyle(awakened ? 7 : 4, awakened ? 0xffd34d : hex(RARITY_COLORS[def.rarity]));
+      if (awakened) this.tweens.add({ targets: base, alpha: 0.75, yoyo: true, repeat: -1, duration: 700 });
       const inner = this.add.circle(0, 0, 40, color, 0.9);
       const icon = this.add.image(0, 2, `hero-${def.id}`).setDisplaySize(78, 78);
       const ring = this.add.graphics();

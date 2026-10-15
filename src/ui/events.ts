@@ -1,6 +1,7 @@
 // Events-Ansicht im Kampf-Reiter: Titan-Angriff und Dungeons.
 import { teamPower, type Player } from '../core/player';
 import * as E from '../core/events';
+import { GEAR_RARITY, gearName } from '../core/gear';
 import { heroDef } from '../core/heroes';
 import { launchBattle, type ResultView } from './battles';
 import { rewardChips } from './quests';
@@ -107,7 +108,7 @@ function startDungeon(id: E.DungeonId, diff: number) {
       title: won ? 'Dungeon geschafft!' : 'Niederlage',
       stars: won ? battle.stars : undefined,
       text: won
-        ? result!.shardHero ? `+${result!.shards} Splitter für ${heroDef(result!.shardHero).name}!` : 'Beute gesichert.'
+        ? `${result!.shardHero ? `+${result!.shards} Splitter für ${heroDef(result!.shardHero).name}!` : 'Beute gesichert.'}${result!.gear ? `<br>Ausrüstung gefunden: <b>${gearName(result!.gear)}</b> (${GEAR_RARITY[result!.gear.rarity].name})!` : ''}`
         : 'Zu stark – versuch eine leichtere Stufe oder trainiere deine Helden.',
       rewardHtml: won ? rewardChips(result!.reward) : undefined,
       buttons,

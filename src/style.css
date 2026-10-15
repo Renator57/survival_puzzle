@@ -1144,3 +1144,41 @@ button { font: inherit; color: inherit; }
 .inv-img { width: 48px; height: 48px; }
 .inv-item b { font-family: var(--display); font-size: 24px; }
 .inv-item span { font-size: 11px; color: var(--muted); font-weight: 700; }
+
+/* ---------- Ausrüstung & Erwachen ---------- */
+.segments.five { grid-template-columns: repeat(5, 1fr); }
+.segments.five .seg { font-size: 13px; padding: 8px 2px; }
+.gear { position: relative; display: grid; place-items: center; width: 58px; height: 58px; flex-shrink: 0; border-radius: 14px;
+  border: 2px solid var(--rar); background: radial-gradient(circle, color-mix(in srgb, var(--rar) 35%, transparent), #0007 70%); }
+.gear.empty { border: 2px dashed #ffffff33; background: #0005; --rar: #ffffff33; }
+.gear.empty .gear-img { opacity: 0.25; filter: grayscale(1); }
+.gear.empty b { position: absolute; font-family: var(--display); font-size: 26px; color: #ffffff99; }
+.gear-img { width: 70%; height: 70%; object-fit: contain; filter: drop-shadow(0 3px 2px #000a); }
+.gear.r-legendary { box-shadow: 0 0 14px color-mix(in srgb, var(--rar) 60%, transparent); }
+.gear-lvl { position: absolute; right: -6px; bottom: -6px; min-width: 22px; padding: 0 5px; border-radius: 99px; font-family: var(--display); font-size: 12px; color: #1b1206; background: var(--rar); border: 2px solid #0b0d12; }
+.gear-owner { position: absolute; left: -6px; top: -6px; width: 24px; height: 24px; border-radius: 50%; background: #0b0d12; display: grid; place-items: center; }
+.gear-owner .ic { width: 20px; height: 20px; }
+.gear-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.gear-slot { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border-radius: 16px; background: #0005; border: 1px solid var(--line); cursor: pointer; }
+.gear-slot small { font-size: 11px; font-weight: 800; color: var(--muted); text-align: center; }
+.gear-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 0 12px; }
+.gear-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 2px; border: none; background: none; cursor: pointer; }
+.gear-tile small { font-size: 10.5px; font-weight: 800; color: #cfd3e2; text-align: center; line-height: 1.15; }
+.forge-card { margin: 0 12px; padding: 12px; border-radius: 20px; border: 1px solid #ffc04855; background: linear-gradient(135deg, #3a2516, #161a24 70%); display: flex; flex-direction: column; gap: 10px; }
+.forge-head { display: flex; align-items: center; gap: 10px; }
+.forge-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.forge-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; border-radius: 16px; border: 1px solid #ffffff22; background: #0006; cursor: pointer; font-family: var(--display); font-size: 15px; }
+.forge-btn .gear-img { width: 44px; height: 44px; }
+.forge-btn .chip { font-size: 12px; }
+.forge-btn:disabled { opacity: 0.45; }
+.hero-picks { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.hero-pick { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border-radius: 12px; border: 1px solid var(--line); background: #0005; cursor: pointer; }
+.hero-pick .ic { width: 38px; height: 38px; }
+.hero-pick small { font-size: 10px; font-weight: 800; }
+.awaken-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px; border: 1px solid #ffd34d77; background: linear-gradient(135deg, #4a3a10, #161a24 70%); }
+.awaken-card.locked { opacity: 0.55; }
+.awake-badge { display: inline-block; margin-left: 6px; padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; color: #1b1206;
+  background: linear-gradient(90deg, #ffd34d, #fff1a8, #ffd34d); background-size: 200% 100%; animation: goldshine 2s linear infinite; }
+.awakened .portrait-fx .aura { inset: -10%; background: radial-gradient(circle, #ffd34d88 0%, transparent 60%), repeating-conic-gradient(#ffd34d55 0 8deg, transparent 8deg 22deg); animation: spin-plain 8s linear infinite; }
+.team-slot.awakened, .hero-tile.awakened { border-color: #ffd34d; box-shadow: 0 0 18px #ffd34d66, 0 6px 14px #0008; }
+@keyframes goldshine { to { background-position: -200% 0; } }

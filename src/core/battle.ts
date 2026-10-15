@@ -40,6 +40,7 @@ export interface Battle {
   result: 'ongoing' | 'won' | 'lost';
   stars: number; // 1–3 nach dem Sieg
   damageDealt: number; // für das Boss-Event
+  awakened: HeroId[]; // nur für die Anzeige
   nextUid: number;
 }
 
@@ -87,6 +88,7 @@ export function createBattle(setup: BattleSetup): Battle {
     result: 'ongoing',
     stars: 0,
     damageDealt: 0,
+    awakened: setup.team.filter((t) => t.awakened).map((t) => t.id),
     nextUid: 1,
   };
   spawnWave(battle);

@@ -2,6 +2,7 @@
 // Reine Logik ohne Grafik – kann so auch auf dem Server laufen (Beschwörungen müssen dort passieren!).
 import type { UnitId } from './army';
 import { techValue } from './facilities';
+import { AWAKEN_BONUS, gearBonus, type GearItem, type Slot } from './gear';
 import type { Player } from './player';
 
 export type HeroId = string;
@@ -36,6 +37,8 @@ export interface HeroState {
   stars: number;
   shards: number;
   talents: Record<string, number>;
+  gear?: Partial<Record<Slot, GearItem>>;
+  awakened?: boolean;
 }
 
 export const RARITY: Record<Rarity, { name: string; mult: number; dupShards: number; order: number }> = {
@@ -204,11 +207,12 @@ export function resetTalents(player: Player, id: HeroId): boolean {
 export const starMult = (stars: number) => 1 + 0.15 * (stars - 1);
 
 export function heroStats(def: HeroDef, s: HeroState) {
-  const f = RARITY[def.rarity].mult * starMult(s.stars) * 1.12 ** (s.level - 1);
+  const awake = s.awakened ? AWAKEN_BONUS.stats : 0;
+  const f = RARITY[def.rarity].mult * starMult(s.stars) * 1.12 ** (s.level - 1) * (1 + awake);
   return {
-    attack: Math.round(def.baseAttack * f * (1 + talentValue(s, 'heroAttack'))),
-    hp: Math.round(def.baseHp * f * (1 + talentValue(s, 'heroHp'))),
-    skillPower: def.skill.power * (1 + talentValue(s, 'skillPower')),
+    attack: Math.round(def.baseAttack * f * (1 + talentValue(s, 'heroAttack') + gearBonus(s, 'heroAttack'))),
+    hp: Math.round(def.baseHp * f * (1 + talentValue(s, 'heroHp') + gearBonus(s, 'heroHp'))),
+    skillPower: def.skill.power * (1 + talentValue(s, 'skillPower') + gearBonus(s, 'skillPower') + (s.awakened ? AWAKEN_BONUS.skill : 0)),
     energy: Math.max(6, def.skill.energy - talentValue(s, 'energy')),
   };
 }
@@ -232,7 +236,7 @@ export function starUp(player: Player, id: HeroId): boolean {
 
 // Truppen-Boni eines Helden (mit Sternen und Kommando-Talenten)
 export function heroBuffs(def: HeroDef, s: HeroState): TroopBuff[] {
-  const f = (1 + 0.2 * (s.stars - 1)) * (1 + talentValue(s, 'troopBuff'));
+  const f = (1 + 0.2 * (s.stars - 1)) * (1 + talentValue(s, 'troopBuff')) * (s.awakened ? 1 + AWAKEN_BONUS.buffs : 1);
   return def.buffs.map((b) => ({ ...b, value: b.value * f }));
 }
 
@@ -317,6 +321,7 @@ export interface BattleHeroSetup {
   hp: number;
   maxEnergy: number;
   skill: { kind: SkillKind; power: number };
+  awakened?: boolean;
 }
 
 // Die fünf Helden für den Puzzle-Kampf inkl. Kombo-Boni (Reihenfolge = Steinfarbe 0–4).
@@ -332,6 +337,7 @@ export function battleTeam(player: Player): BattleHeroSetup[] {
       hp: Math.round(stats.hp * (1 + bonus.heroHp)),
       maxEnergy: Math.max(6, stats.energy - bonus.energy),
       skill: { kind: def.skill.kind, power: stats.skillPower * (1 + bonus.skillPower) },
+      awakened: !!player.heroes[id]!.awakened,
     };
   });
 }

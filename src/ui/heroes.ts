@@ -1,6 +1,7 @@
 // Helden: Team, Sammlung, Beschwörung, Shop, Profil mit Talentbaum.
 import { audio } from '../audio';
 import { unitDef, type UnitId } from '../core/army';
+import * as G from '../core/gear';
 import * as H from '../core/heroes';
 import * as P from '../core/player';
 import { RARITY_COLORS } from '../game/colors';
@@ -10,7 +11,7 @@ export const HERO_COLORS = ['#ef4b4b', '#3d8bfd', '#3fcf6b', '#ffc531', '#a66bff
 const COLOR_NAMES = ['Rot', 'Blau', 'Grün', 'Gelb', 'Lila'];
 const TALENT_ICONS: Record<H.Branch, string> = { attack: 'ui-swords', defense: 'ui-shield', command: 'ui-flag' };
 
-type View = 'team' | 'collection' | 'summon' | 'shop';
+type View = 'team' | 'collection' | 'gear' | 'summon' | 'shop';
 let view: View = 'team';
 let profileId: H.HeroId = 'rex';
 
@@ -45,17 +46,18 @@ export function portrait(def: H.HeroDef, cls = '') {
 
 // ---------- Bildschirm ----------
 export function renderHeroes(player: P.Player): string {
-  const tabs = (['team', 'collection', 'summon', 'shop'] as View[]).map((v) => {
-    const label = { team: 'Team', collection: 'Sammlung', summon: 'Beschwören', shop: 'Shop' }[v];
+  const tabs = (['team', 'collection', 'gear', 'summon', 'shop'] as View[]).map((v) => {
+    const label = { team: 'Team', collection: 'Sammlung', gear: 'Ausrüstung', summon: 'Rufen', shop: 'Shop' }[v];
     return `<button class="seg ${view === v ? 'active' : ''}" data-action="hero-view" data-arg="${v}">${label}</button>`;
   }).join('');
-  const body = view === 'team' ? teamView(player) : view === 'collection' ? collectionView(player) : view === 'summon' ? summonView(player) : shopView();
+  const body = view === 'team' ? teamView(player) : view === 'collection' ? collectionView(player) : view === 'gear' ? gearView(player)
+    : view === 'summon' ? summonView(player) : shopView();
   return `
     <div class="screen-head">
       <div><h1>Helden</h1><p>${H.ownedHeroes(player).length} von ${H.HEROES.length} gesammelt</p></div>
       <div class="pill">${pic('ui-muscle')} ${fmt(P.teamPower(player))}</div>
     </div>
-    <div class="segments">${tabs}</div>
+    <div class="segments five">${tabs}</div>
     ${body}`;
 }
 
@@ -63,7 +65,7 @@ function teamView(player: P.Player) {
   const slots = player.team.map((id, color) => {
     const def = H.heroDef(id);
     const s = player.heroes[id]!;
-    return `<button class="team-slot r-${def.rarity}" style="${rarityStyle(def)}" data-action="team-slot" data-arg="${color}">
+    return `<button class="team-slot r-${def.rarity} ${s.awakened ? 'awakened' : ''}" style="${rarityStyle(def)}" data-action="team-slot" data-arg="${color}">
       <span class="slot-color">${pic(`tile-${color}`)}</span>
       ${portrait(def, 'small')}
       <b>${def.name}</b>
@@ -111,7 +113,7 @@ function collectionView(player: P.Player) {
   return `<div class="collection">${sorted.map((def) => {
     const s = player.heroes[def.id];
     const inTeam = player.team.includes(def.id);
-    return `<button class="hero-tile r-${def.rarity} ${s ? '' : 'locked'}" style="${rarityStyle(def)}" data-action="hero" data-arg="${def.id}">
+    return `<button class="hero-tile r-${def.rarity} ${s ? '' : 'locked'} ${s?.awakened ? 'awakened' : ''}" style="${rarityStyle(def)}" data-action="hero" data-arg="${def.id}">
       <span class="tile-rarity">${H.RARITY[def.rarity].name}</span>
       ${portrait(def, 'tiny')}
       <b>${s ? def.name : '???'}</b>
@@ -185,16 +187,116 @@ function shopView() {
     <div class="packs">${packs}</div>`;
 }
 
+// ---------- Ausrüstung ----------
+const gearCard = (item: G.GearItem, extra = '') => `
+  <span class="gear r-${item.rarity}" style="--rar:${RARITY_COLORS[item.rarity]}">
+    ${pic(G.gearImg(item), 'gear-img')}<span class="gear-lvl">${item.level}</span>${extra}
+  </span>`;
+
+function gearSlots(s: H.HeroState): string {
+  return `<div class="gear-slots">${G.SLOTS.map((slot) => {
+    const item = s.gear?.[slot];
+    return `<button class="gear-slot" data-action="gear-slot" data-arg="${slot}">
+      ${item ? gearCard(item) : `<span class="gear empty">${pic(G.gearImg({ slot, rarity: 'common' }), 'gear-img')}<b>+</b></span>`}
+      <small>${item ? `+${Math.round(G.gearValue(item) * 100)}\u00a0% ${G.SLOT_INFO[slot].statName}` : G.SLOT_INFO[slot].name}</small>
+    </button>`;
+  }).join('')}</div>`;
+}
+
+function awakenCard(p: P.Player, id: H.HeroId): string {
+  const s = p.heroes[id]!;
+  if (s.awakened) return '';
+  const ready = G.canAwaken(p, id);
+  return `<div class="awaken-card ${s.stars >= 5 ? '' : 'locked'}">
+    ${pic('gear-helmet-legendary', 'row-img')}
+    <div class="row-main"><b>Erwachen</b>
+      <span class="muted">${s.stars >= 5 ? `+${G.AWAKEN_BONUS.stats * 100}\u00a0% Werte, +${G.AWAKEN_BONUS.skill * 100}\u00a0% Fähigkeit, +${G.AWAKEN_BONUS.buffs * 100}\u00a0% Truppen-Boni` : 'Ab 5 Sternen möglich'}</span>
+      ${s.stars >= 5 ? `<span class="chips left small"><span class="chip ${s.shards >= G.AWAKEN_SHARDS ? '' : 'missing'}">${pic('ui-glowstar')}${s.shards}/${G.AWAKEN_SHARDS} Splitter</span>${costChips({ food: 0, wood: 0, steel: G.AWAKEN_STEEL }, p)}</span>` : ''}
+    </div>
+    ${s.stars >= 5 ? `<button class="btn small primary" data-action="awaken" ${ready ? '' : 'disabled'}>Erwecken</button>` : ''}
+  </div>`;
+}
+
+let gearUid = 0;
+let gearSlotSel: G.Slot = 'weapon';
+
+function gearView(player: P.Player): string {
+  const all = [
+    ...player.gear.map((item) => ({ item, hero: null as H.HeroId | null })),
+    ...Object.entries(player.heroes).flatMap(([id, s]) => G.SLOTS.filter((sl) => s?.gear?.[sl]).map((sl) => ({ item: s!.gear![sl]!, hero: id }))),
+  ].sort((a, b) => ['legendary', 'epic', 'common'].indexOf(a.item.rarity) - ['legendary', 'epic', 'common'].indexOf(b.item.rarity) || b.item.level - a.item.level);
+  const forge = G.SLOTS.map((slot) => `
+    <button class="forge-btn" data-action="craft" data-arg="${slot}" ${player.resources.steel >= G.CRAFT_COST ? '' : 'disabled'}>
+      ${pic(G.gearImg({ slot, rarity: 'epic' }), 'gear-img')}<b>${G.SLOT_INFO[slot].name}</b>
+      <span class="chip">${pic('res-steel')}${fmt(G.CRAFT_COST)}</span>
+    </button>`).join('');
+  return `
+    <div class="forge-card">
+      <div class="forge-head">${pic('ui-forge', 'row-img')}<div class="row-main"><b>Schmiede</b>
+        <span class="muted">Stelle ein zufälliges Teil her: 62&nbsp;% gewöhnlich, 30&nbsp;% episch, 8&nbsp;% legendär.</span></div></div>
+      <div class="forge-row">${forge}</div>
+    </div>
+    <h2 class="section-title">${pic('ui-bag')} Inventar <small>${all.length} Teile</small></h2>
+    ${all.length ? `<div class="gear-grid">${all.map(({ item, hero }) => `
+      <button class="gear-tile" data-action="gear-item" data-arg="${item.uid}">
+        ${gearCard(item, hero ? `<span class="gear-owner">${pic(`hero-${hero}`)}</span>` : '')}
+        <small>${G.gearName(item)}</small>
+      </button>`).join('')}</div>`
+    : '<p class="empty" style="margin:0 12px">Noch keine Ausrüstung. Schmiede ein Teil oder hol dir welche aus Dungeons, dem Titan und Sterne-Truhen.</p>'}`;
+}
+
+function gearItemSheet(): string {
+  const p = app.player;
+  const found = G.findGear(p, gearUid);
+  if (!found) return '<p class="muted">Teil nicht gefunden.</p>';
+  const { item, hero } = found;
+  const info = G.SLOT_INFO[item.slot];
+  const maxed = item.level >= G.MAX_GEAR_LEVEL;
+  const next = { ...item, level: item.level + 1 };
+  const cost = G.upgradeCost(item);
+  return `
+    <div class="sheet-hero">${gearCard(item)}
+      <div><p class="kicker" style="color:${RARITY_COLORS[item.rarity]}">${G.GEAR_RARITY[item.rarity].name} · ${info.name}</p><h2>${G.gearName(item)}</h2>
+        <p class="muted">${hero ? `Angelegt bei ${H.heroDef(hero).name}` : 'Im Inventar'}</p></div></div>
+    <div class="effects">
+      <div class="effect-row"><span>${info.statName}</span><b>+${Math.round(G.gearValue(item) * 100)}\u00a0%</b>${maxed ? '' : `<span class="arrow">→</span><b class="next">+${Math.round(G.gearValue(next) * 100)}\u00a0%</b>`}</div>
+      <div class="effect-row"><span>Stufe</span><b>${item.level}/${G.MAX_GEAR_LEVEL}</b></div>
+    </div>
+    ${maxed ? '' : `<button class="btn big primary" data-action="gear-upgrade" ${p.resources.steel >= cost ? '' : 'disabled'}>Aufwerten ${pic('res-steel')} ${fmt(cost)}</button>`}
+    ${hero ? `<button class="btn big" data-action="gear-unequip" data-arg="${hero}:${item.slot}">Ablegen</button>` : `
+      <p class="label">Anlegen bei</p>
+      <div class="hero-picks">${H.ownedHeroes(p).map((d) => `<button class="hero-pick" data-action="gear-equip" data-arg="${d.id}">${pic(`hero-${d.id}`)}<small>${d.name}</small></button>`).join('')}</div>
+      <button class="btn" data-action="gear-salvage">Zerlegen (+${fmt(Math.round(G.GEAR_RARITY[item.rarity].salvage * (1 + 0.2 * (item.level - 1))))} Stahl)</button>`}`;
+}
+
+function gearSlotSheet(): string {
+  const p = app.player;
+  const s = p.heroes[profileId]!;
+  const current = s.gear?.[gearSlotSel];
+  const options = p.gear.filter((g) => g.slot === gearSlotSel).sort((a, b) => G.gearValue(b) - G.gearValue(a));
+  return `
+    <div class="sheet-hero">${pic(G.gearImg({ slot: gearSlotSel, rarity: 'epic' }), 'sheet-img small')}
+      <div><p class="kicker">${H.heroDef(profileId).name}</p><h2>${G.SLOT_INFO[gearSlotSel].name}</h2>
+      <p class="muted">Gibt +${G.SLOT_INFO[gearSlotSel].statName}.</p></div></div>
+    ${current ? `<div class="list-row">${gearCard(current)}<div class="row-main"><b>${G.gearName(current)}</b>
+      <span class="muted">+${Math.round(G.gearValue(current) * 100)}\u00a0% · angelegt</span></div>
+      <button class="btn small" data-action="gear-item" data-arg="${current.uid}">Details</button></div>` : ''}
+    <p class="label">Im Inventar</p>
+    <div class="list">${options.map((g) => `<div class="list-row">${gearCard(g)}
+      <div class="row-main"><b>${G.gearName(g)}</b><span class="muted">+${Math.round(G.gearValue(g) * 100)}\u00a0% ${G.SLOT_INFO[g.slot].statName}</span></div>
+      <button class="btn small primary" data-action="gear-put" data-arg="${g.uid}">Anlegen</button></div>`).join('') || '<p class="empty">Kein passendes Teil. Schmiede eins unter Helden → Ausrüstung.</p>'}</div>`;
+}
+
 // ---------- Profil ----------
 function profileSheet(): string {
   const player = app.player;
   const def = H.heroDef(profileId);
   const s = player.heroes[profileId];
   const head = `
-    <div class="profile-head r-${def.rarity}" style="${rarityStyle(def)}">
+    <div class="profile-head r-${def.rarity} ${s?.awakened ? 'awakened' : ''}" style="${rarityStyle(def)}">
       ${portrait(def, 'big')}
       <div class="profile-info">
-        <span class="rarity-badge">${H.RARITY[def.rarity].name}</span>
+        <span class="rarity-badge">${H.RARITY[def.rarity].name}</span>${s?.awakened ? '<span class="awake-badge">Erwacht</span>' : ''}
         <h2>${def.name}</h2>
         <p class="muted">${def.title} · ${H.FACTIONS[def.faction]}</p>
         ${s ? stars(s.stars) : ''}
@@ -247,6 +349,8 @@ function profileSheet(): string {
           <button class="btn epicbtn" data-action="hero-star" ${s.shards >= starNeed ? '' : 'disabled'}>★ ${s.stars + 1}</button>`}
       </div>
     </div>
+    ${gearSlots(s)}
+    ${awakenCard(player, def.id)}
     <button class="btn big talentbtn" data-action="talents">${pic('ui-glowstar')} Talentbaum ${free > 0 ? `<span class="badge-inline">${free}</span>` : ''}</button>
     ${inTeam ? '<p class="hint center">Ist in deinem Team.</p>'
       : `<button class="btn big" data-action="team-set" data-arg="${def.id}">Ins Team (ersetzt ${replaced.name})</button>`}`;
@@ -358,6 +462,15 @@ function playSummon(results: H.SummonResult[]) {
 }
 
 // ---------- Aktionen ----------
+function gearDone(msg: string, sheet?: () => string) {
+  audio.reward();
+  toast(msg);
+  app.save();
+  app.render();
+  if (sheet) openSheet(sheet);
+  else refreshSheet();
+}
+
 Object.assign(actions, {
   'hero-view': (arg: string) => {
     view = arg as View;
@@ -385,6 +498,52 @@ Object.assign(actions, {
       app.save();
       app.render();
     }
+  },
+  'gear-slot': (arg: string) => {
+    gearSlotSel = arg as G.Slot;
+    openSheet(gearSlotSheet);
+  },
+  'gear-put': (arg: string) => {
+    if (G.equip(app.player, profileId, Number(arg))) gearDone('Angelegt!', profileSheet);
+  },
+  'gear-item': (arg: string) => {
+    gearUid = Number(arg);
+    openSheet(gearItemSheet);
+  },
+  'gear-upgrade': () => {
+    if (G.upgradeGear(app.player, gearUid)) gearDone('Aufgewertet!');
+  },
+  'gear-unequip': (arg: string) => {
+    const [hero, slot] = arg.split(':');
+    if (G.unequip(app.player, hero, slot as G.Slot)) gearDone('Abgelegt.');
+  },
+  'gear-equip': (arg: string) => {
+    if (G.equip(app.player, arg, gearUid)) gearDone(`Angelegt bei ${H.heroDef(arg).name}!`);
+  },
+  'gear-salvage': () => {
+    const steel = G.salvage(app.player, gearUid);
+    if (steel) {
+      closeSheet();
+      gearDone(`Zerlegt: +${fmt(steel)} Stahl`);
+    }
+  },
+  craft: (arg: string) => {
+    const item = G.craft(app.player, arg as G.Slot);
+    if (!item) return toast('Nicht genug Stahl.');
+    audio.summon(['common', 'epic', 'legendary'].indexOf(item.rarity));
+    gearUid = item.uid;
+    app.save();
+    app.render();
+    openSheet(gearItemSheet);
+    toast(`${G.GEAR_RARITY[item.rarity].name}: ${G.gearName(item)}!`);
+  },
+  awaken: () => {
+    if (!G.awaken(app.player, profileId)) return;
+    playSummon([{ id: profileId, isNew: false, shards: 0 }]);
+    toast(`${H.heroDef(profileId).name} ist erwacht!`);
+    app.save();
+    app.render();
+    refreshSheet();
   },
   'hero-star': () => {
     if (H.starUp(app.player, profileId)) {

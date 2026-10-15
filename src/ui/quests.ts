@@ -11,6 +11,7 @@ export function rewardChips(r: Q.Reward) {
     if (r[k]) parts.push(`<span class="chip">${pic(img)}+${fmt(r[k]!)}</span>`);
   }
   for (const [id, n] of Object.entries(r.items ?? {})) parts.push(`<span class="chip">${pic(`item-${id}`)}×${n}</span>`);
+  if (r.gear) parts.push(`<span class="chip">${pic('gear-weapon-epic')}${r.gear}× Ausrüstung</span>`);
   return parts.join('');
 }
 
