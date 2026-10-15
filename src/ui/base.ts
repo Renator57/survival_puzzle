@@ -10,13 +10,15 @@ const LAYOUT: Record<BuildingId, { x: number; y: number; w: number; img: string 
   warehouse: { x: 26, y: 75, w: 21, img: 'b-warehouse' },
   steelworks: { x: 74, y: 75, w: 24, img: 'b-steelworks' },
   wall: { x: 50, y: 91, w: 17, img: 'b-wall' },
+  barracks: { x: 20, y: 23, w: 18, img: 'b-barracks' },
+  workshop: { x: 80, y: 23, w: 18, img: 'b-workshop' },
 };
 
 const DECOR: [string, number, number, number][] = [
   ['deco-tree', 4, 6, 11], ['deco-tree2', 15, 3, 9], ['deco-tree', 86, 4, 10], ['deco-tree2', 96, 14, 9],
   ['deco-tree', 3, 36, 9], ['deco-tree2', 97, 33, 10], ['deco-tree', 2, 70, 10], ['deco-tree2', 97, 66, 9],
   ['deco-tree', 6, 95, 11], ['deco-tree2', 94, 95, 11], ['deco-rock', 90, 84, 7], ['deco-rock', 9, 83, 6],
-  ['deco-tent', 22, 22, 11], ['deco-tent', 78, 22, 11], ['deco-barrel', 60, 63, 6], ['deco-barrel', 40, 63, 6],
+['deco-barrel', 60, 63, 6], ['deco-barrel', 40, 63, 6],
   ['deco-log', 93, 60, 8], ['deco-car', 50, 51, 9],
 ];
 
@@ -125,6 +127,13 @@ function effectRows(b: BuildingDef, level: number): [string, string, string][] {
     return [[`${RES_NAMES[b.produces]} pro Stunde`, `+${fmt(P.rateAt(b, level) * 3600)}`, `+${fmt(P.rateAt(b, next) * 3600)}`]];
   }
   if (b.id === 'warehouse') return [['Lagerkapazität', fmt(P.capacityAt(level)), fmt(P.capacityAt(next))]];
+  if (b.id === 'barracks') {
+    return [
+      ['Platz für Soldaten', fmt(100 + 150 * level), fmt(100 + 150 * next)],
+      ['Ausbildungstempo', `${Math.round(P.trainSpeed(level) * 100)}\u00a0%`, `${Math.round(P.trainSpeed(next) * 100)}\u00a0%`],
+    ];
+  }
+  if (b.id === 'workshop') return [['Plätze für Sammelwagen', String(3 * level), String(3 * next)]];
   if (b.id === 'wall') return [['Team-Lebenspunkte', `+${Math.round(P.wallBonusAt(level) * 100)} %`, `+${Math.round(P.wallBonusAt(next) * 100)} %`]];
   return [['Max. Gebäudestufe', String(level), String(next)]];
 }

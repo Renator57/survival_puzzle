@@ -9,11 +9,13 @@ import { BattleScene, HEIGHT, WIDTH, type BattleOutcome } from './game/BattleSce
 import { BLOCK_TEXT, buildingSheet, renderBase } from './ui/base';
 import { heroSheet, renderHeroes } from './ui/heroes';
 import { renderMap, scrollMapToCurrent, stageSheet } from './ui/map';
-import { closeSheet, costChips, fmt, openSheet, patch, pic, refreshSheet, RES_IMG, RES_NAMES, toast, updateTimers } from './ui/shared';
+import { actions, app, closeSheet, costChips, fmt, openSheet, patch, pic, refreshSheet, RES_IMG, RES_NAMES, toast, updateTimers } from './ui/shared';
+import { renderTroops } from './ui/troops';
+import { mountWorld, renderWorld, updateWorldMarches } from './ui/world';
 import './style.css';
 
 const SAVE_KEY = 'survival-puzzle-save';
-type Tab = 'base' | 'map' | 'heroes';
+type Tab = 'base' | 'troops' | 'map' | 'world' | 'heroes';
 
 let player = load();
 let tab: Tab = 'base';
@@ -54,9 +56,20 @@ function renderResources() {
 function render() {
   patch(document.getElementById('resbar')!, renderResources());
   const screen = document.getElementById('screen')!;
-  const html = tab === 'base' ? renderBase(player) : tab === 'map' ? renderMap(player) : renderHeroes(player);
+  const html =
+    tab === 'base' ? renderBase(player)
+    : tab === 'troops' ? renderTroops(player)
+    : tab === 'map' ? renderMap(player)
+    : tab === 'world' ? renderWorld(player)
+    : renderHeroes(player);
   screen.dataset.tab = tab;
-  patch(screen, html);
+  if (patch(screen, html) && tab === 'world') mountWorld();
+  if (tab === 'world') updateWorldMarches(player);
+  if (tab === 'troops') player.reports.forEach((r) => (r.read = true));
+  const unread = player.reports.filter((r) => !r.read).length;
+  const badge = document.getElementById('badge-troops')!;
+  badge.textContent = String(unread);
+  badge.hidden = unread === 0;
   document.querySelectorAll<HTMLElement>('[data-action="tab"]').forEach((b) => b.classList.toggle('active', b.dataset.arg === tab));
   refreshSheet();
   updateTimers();
@@ -73,29 +86,33 @@ function switchTab(next: Tab) {
 }
 
 // ---------- Aktionen (alle Taps laufen über data-action) ----------
-const actions: Record<string, (arg: string) => void> = {
-  tab: (arg) => switchTab(arg as Tab),
-  building: (arg) => openSheet(() => buildingSheet(player, arg as BuildingId)),
-  upgrade: (arg) => {
+app.player = player;
+app.save = save;
+app.render = render;
+
+Object.assign(actions, {
+  tab: (arg: string) => switchTab(arg as Tab),
+  building: (arg: string) => openSheet(() => buildingSheet(player, arg as BuildingId)),
+  upgrade: (arg: string) => {
     const block = P.startUpgrade(player, arg as BuildingId, Date.now());
     if (block) toast(BLOCK_TEXT[block]);
     else toast('Bau gestartet!');
     save();
     render();
   },
-  stage: (arg) => openSheet(() => stageSheet(player, Number(arg))),
-  battle: (arg) => {
+  stage: (arg: string) => openSheet(() => stageSheet(player, Number(arg))),
+  battle: (arg: string) => {
     closeSheet(true);
     void startBattle(Number(arg));
   },
-  hero: (arg) => openSheet(() => heroSheet(player, arg as HeroId)),
-  train: (arg) => {
+  hero: (arg: string) => openSheet(() => heroSheet(player, arg as HeroId)),
+  train: (arg: string) => {
     if (P.upgradeHero(player, arg as HeroId)) {
       save();
       render();
     }
   },
-};
+} satisfies Record<string, (arg: string) => void>);
 
 document.addEventListener('click', (e) => {
   const el = (e.target as Element).closest<HTMLElement>('[data-action]');
@@ -107,11 +124,17 @@ document.addEventListener('click', (e) => {
 function tick() {
   if (game) return;
   const before = P.activeUpgrade(player);
+  const queues = { ...player.queues };
+  const reportCount = player.reports.length ? player.reports[0].id : 0;
   P.update(player, Date.now());
-  if (before && !P.activeUpgrade(player)) {
-    toast(`${before.name} ist fertig!`);
-    save();
+  if (before && !P.activeUpgrade(player)) toast(`${before.name} ist fertig!`);
+  for (const q of ['barracks', 'workshop'] as const) {
+    const t = queues[q];
+    if (t && !player.queues[q]) toast(`Ausbildung fertig: ${t.amount} Einheiten`);
   }
+  const fresh = player.reports.filter((r) => r.id > reportCount);
+  for (const r of fresh.reverse()) toast(r.title);
+  if (before || fresh.length || queues.barracks || queues.workshop) save();
   render();
 }
 

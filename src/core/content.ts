@@ -83,7 +83,7 @@ export const STAGES: StageDef[] = Array.from({ length: 24 }, (_, i) => {
   };
 });
 
-export type BuildingId = 'hq' | 'farm' | 'sawmill' | 'steelworks' | 'warehouse' | 'wall';
+export type BuildingId = 'hq' | 'farm' | 'sawmill' | 'steelworks' | 'warehouse' | 'wall' | 'barracks' | 'workshop';
 
 export interface BuildingDef {
   id: BuildingId;
@@ -110,6 +110,10 @@ export const BUILDINGS: BuildingDef[] = [
     baseCost: { food: 150, wood: 200, steel: 0 }, baseTime: 5 },
   { id: 'wall', name: 'Schutzmauer', icon: '🧱', text: '+8 % Team-Lebenspunkte im Kampf pro Stufe.',
     baseCost: { food: 100, wood: 250, steel: 40 }, baseTime: 6 },
+  { id: 'barracks', name: 'Kaserne', icon: '🪖', text: 'Bildet Soldaten aus. Jede Stufe bringt mehr Platz und schnellere Ausbildung.',
+    baseCost: { food: 200, wood: 250, steel: 0 }, baseTime: 6 },
+  { id: 'workshop', name: 'Werkstatt', icon: '🧰', text: 'Baut Sammelwagen mit riesiger Ladefläche für die Weltkarte.', unlockHq: 2,
+    baseCost: { food: 150, wood: 300, steel: 60 }, baseTime: 8 },
 ];
 
 export const MAX_HQ_LEVEL = 15;

@@ -97,3 +97,21 @@ export function closeSheet(instant = false) {
   backdrop.classList.remove('open');
   setTimeout(() => backdrop.remove(), 250);
 }
+
+// ---------- App-Kontext ----------
+// main.ts setzt Spieler und Funktionen; Bildschirme melden ihre Aktionen hier an.
+export const app = {
+  player: null as unknown as Player,
+  save: () => {},
+  render: () => {},
+};
+
+export const actions: Record<string, (arg: string) => void> = {};
+
+export function timeAgo(at: number, now = Date.now()): string {
+  const min = Math.floor((now - at) / 60000);
+  if (min < 1) return 'gerade eben';
+  if (min < 60) return `vor ${min} min`;
+  const h = Math.floor(min / 60);
+  return h < 24 ? `vor ${h} h` : `vor ${Math.floor(h / 24)} T`;
+}

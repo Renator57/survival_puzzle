@@ -14,6 +14,8 @@ import {
   type ResourceId,
   type Resources,
 } from './content';
+import { armySize, unitDef, UNITS, type Army, type UnitId } from './army';
+import { processMarches, type March, type Report, type TileState } from './world';
 
 export const SAVE_VERSION = 1;
 export const RESOURCE_IDS: ResourceId[] = ['food', 'wood', 'steel'];
@@ -23,16 +25,33 @@ export interface BuildingState {
   upgradeEndsAt: number | null;
 }
 
+export interface Training {
+  unit: UnitId;
+  amount: number;
+  startAt: number;
+  endsAt: number;
+}
+
+export type TrainingBuilding = 'barracks' | 'workshop';
+
 export interface Player {
   version: number;
   resources: Resources;
   buildings: Record<BuildingId, BuildingState>;
   heroes: Record<HeroId, number>;
   stagesCleared: number;
+  troops: Record<UnitId, number>; // Einheiten zu Hause (unterwegs zählen die Märsche)
+  queues: Record<TrainingBuilding, Training | null>;
+  marches: March[];
+  reports: Report[];
+  world: { seed: number; tiles: Record<string, TileState> };
+  nextId: number;
   lastUpdate: number;
 }
 
-const START_LEVELS: Record<BuildingId, number> = { hq: 1, farm: 1, sawmill: 1, steelworks: 0, warehouse: 1, wall: 0 };
+const START_LEVELS: Record<BuildingId, number> = {
+  hq: 1, farm: 1, sawmill: 1, steelworks: 0, warehouse: 1, wall: 0, barracks: 1, workshop: 0,
+};
 
 export function createPlayer(now: number): Player {
   return {
@@ -43,6 +62,12 @@ export function createPlayer(now: number): Player {
     ) as Record<BuildingId, BuildingState>,
     heroes: Object.fromEntries(HEROES.map((h) => [h.id, 1])) as Record<HeroId, number>,
     stagesCleared: 0,
+    troops: { brawler: 30, shooter: 30, rider: 20, wagon: 0 },
+    queues: { barracks: null, workshop: null },
+    marches: [],
+    reports: [],
+    world: { seed: (now % 2147483646) + 1, tiles: {} },
+    nextId: 1,
     lastUpdate: now,
   };
 }
@@ -94,6 +119,14 @@ export function update(player: Player, now: number) {
       s.upgradeEndsAt = null;
     }
   }
+  for (const q of ['barracks', 'workshop'] as const) {
+    const t = player.queues[q];
+    if (t && t.endsAt <= now) {
+      player.troops[t.unit] += t.amount;
+      player.queues[q] = null;
+    }
+  }
+  processMarches(player, now);
   const seconds = Math.max(0, (now - player.lastUpdate) / 1000);
   const cap = capacity(player);
   for (const r of RESOURCE_IDS) {
@@ -128,6 +161,67 @@ export function startUpgrade(player: Player, id: BuildingId, now: number): Upgra
   s.upgradeEndsAt = now + upgradeSeconds(b, s.level) * 1000;
   return null;
 }
+
+// ---------- Truppen ----------
+export const soldierCap = (player: Player) => 100 + 150 * player.buildings.barracks.level;
+export const wagonCap = (player: Player) => 3 * player.buildings.workshop.level;
+export const trainSpeed = (level: number) => 1 + 0.15 * Math.max(0, level - 1);
+
+// Alle Einheiten eines Typs: zu Hause, unterwegs und in Ausbildung.
+export function totalUnits(player: Player, unit: UnitId): number {
+  const marching = player.marches.reduce((s, m) => s + (m.units[unit] ?? 0), 0);
+  const training = Object.values(player.queues).reduce((s, t) => s + (t?.unit === unit ? t.amount : 0), 0);
+  return player.troops[unit] + marching + training;
+}
+
+export const totalSoldiers = (player: Player) =>
+  UNITS.filter((u) => u.building === 'barracks').reduce((s, u) => s + totalUnits(player, u.id), 0);
+
+export function freeSlots(player: Player, unit: UnitId): number {
+  return unitDef(unit).building === 'workshop'
+    ? wagonCap(player) - totalUnits(player, 'wagon')
+    : soldierCap(player) - totalSoldiers(player);
+}
+
+export const trainCost = (unit: UnitId, amount: number): Resources => {
+  const c = unitDef(unit).cost;
+  return { food: c.food * amount, wood: c.wood * amount, steel: c.steel * amount };
+};
+
+export function trainSeconds(player: Player, unit: UnitId, amount: number): number {
+  const u = unitDef(unit);
+  return Math.max(1, Math.round((u.seconds * amount) / trainSpeed(player.buildings[u.building].level)));
+}
+
+export function maxTrainable(player: Player, unit: UnitId): number {
+  const c = unitDef(unit).cost;
+  const byRes = RESOURCE_IDS.map((r) => (c[r] > 0 ? Math.floor(player.resources[r] / c[r]) : Infinity));
+  return Math.max(0, Math.min(freeSlots(player, unit), ...byRes));
+}
+
+export type TrainBlock = 'locked' | 'busy' | 'capacity' | 'resources' | 'amount' | null;
+
+export function trainBlock(player: Player, unit: UnitId, amount: number): TrainBlock {
+  const u = unitDef(unit);
+  if (player.buildings[u.building].level === 0) return 'locked';
+  if (player.queues[u.building]) return 'busy';
+  if (amount <= 0) return 'amount';
+  if (amount > freeSlots(player, unit)) return 'capacity';
+  if (!canAfford(player, trainCost(unit, amount))) return 'resources';
+  return null;
+}
+
+export function startTraining(player: Player, unit: UnitId, amount: number, now: number): TrainBlock {
+  update(player, now);
+  const block = trainBlock(player, unit, amount);
+  if (block) return block;
+  pay(player, trainCost(unit, amount));
+  player.queues[unitDef(unit).building] = { unit, amount, startAt: now, endsAt: now + trainSeconds(player, unit, amount) * 1000 };
+  return null;
+}
+
+export const homeArmy = (player: Player): Army => ({ ...player.troops });
+export const hasTroopsHome = (player: Player) => armySize(player.troops) > 0;
 
 export function upgradeHero(player: Player, id: HeroId): boolean {
   const level = player.heroes[id];
@@ -181,6 +275,9 @@ export function deserialize(json: string, now: number): Player {
     resources: { ...fresh.resources, ...data.resources },
     buildings: { ...fresh.buildings, ...data.buildings },
     heroes: { ...fresh.heroes, ...data.heroes },
+    troops: { ...fresh.troops, ...data.troops },
+    queues: { ...fresh.queues, ...data.queues },
+    world: { ...fresh.world, ...data.world },
     version: SAVE_VERSION,
   };
 }

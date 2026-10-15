@@ -3,9 +3,11 @@
 Handy-Spiel im Stil von *Puzzles & Survival*: **Match-3-Kämpfe gegen Zombie-Wellen** und
 **Basisbau** mit Rohstoffen, Bauzeiten und Helden-Training.
 
-| Kampf | Basis | Karte | Helden |
-| --- | --- | --- | --- |
-| ![Kampf](docs/kampf.png) | ![Basis](docs/basis.png) | ![Karte](docs/karte.png) | ![Helden](docs/helden.png) |
+| Kampf | Basis | Karte |
+| --- | --- | --- |
+| ![Kampf](docs/kampf.png) | ![Basis](docs/basis.png) | ![Karte](docs/karte.png) |
+| **Weltkarte** | **Truppen** | **Helden** |
+| ![Welt](docs/welt.png) | ![Truppen](docs/truppen.png) | ![Helden](docs/helden.png) |
 
 ## Spielprinzip
 
@@ -18,6 +20,12 @@ Handy-Spiel im Stil von *Puzzles & Survival*: **Match-3-Kämpfe gegen Zombie-Wel
   die Schutzmauer gibt mehr Lebenspunkte im Kampf. Das Hauptquartier begrenzt die Stufe aller Gebäude.
 - **Helden:** Mit Nahrung und Holz trainieren (bis Stufe 30).
 - **Karte:** 24 Level, alle 4 Level ein Boss.
+- **Truppen:** Schläger, Schützen und Fahrer aus der Kaserne – mit Konter-Dreieck
+  (Schläger > Fahrer > Schützen > Schläger, +50 % Schaden). Sammelwagen aus der Werkstatt
+  tragen 150 statt 6–10 Rohstoffe.
+- **Weltkarte:** 40×40 Felder zum Verschieben und Zoomen. Rohstofffelder sammeln, Zombie-Horden und
+  Städte von Mitspielern angreifen (mit Sieg-Prognose), Märsche laufen live über die Karte, Kampfberichte.
+  *Die Mitspieler sind derzeit simuliert* – mit dem Server (siehe Fahrplan) werden es echte Spieler.
 
 ## Technik
 
@@ -35,7 +43,7 @@ zu Grafik oder Browser. Dieselben Dateien können später unverändert auf einem
 festen Zufalls-Seed, sodass der Server jeden Kampf nachrechnen und Schummeln erkennen kann.
 
 ```
-src/core/      Spielregeln (Server-tauglich): board.ts, battle.ts, player.ts, content.ts
+src/core/      Spielregeln (Server-tauglich): board.ts, battle.ts, player.ts, content.ts, army.ts, world.ts
 src/game/      Phaser-Kampfszene (nur Darstellung)
 src/main.ts    Menüs, Speichern, Navigation
 tests/         Tests der Spielregeln
@@ -84,7 +92,10 @@ das Apple Developer Program (99 $/Jahr).
 ## Fahrplan
 
 1. ~~Match-3-Kampf, Helden, Basis, 24 Level~~ ✅
-2. Musik und Soundeffekte, bessere Grafiken (Sprites statt Emojis), Tutorial
-3. Mehr Inhalte: Helden-Sammeln (Seltenheiten), Ausrüstung, tägliche Aufgaben
-4. **Server**: Konto-Anmeldung, Spielstand in der Cloud, Kämpfe vom Server prüfen
-5. **Mehrspieler**: Allianzen, Chat, Ranglisten, Angriffe auf andere Basen, Weltkarte
+2. ~~Neues Design: Landkarte, Lager-Ansicht, 3D-Grafiken~~ ✅
+3. ~~Truppen mit Konter-System, Sammelwagen, Weltkarte mit Märschen~~ ✅
+4. Helden-System 2.0: mehr Helden, Boni auf Truppen, Helden-Kombinationen, Talentbaum, Animationen,
+   Beschwörung mit seltener Premium-Währung
+5. **Mehrspieler-Server**: Konten, Weltkarte mit echten Spielern, Allianzen, Chat, Ranglisten,
+   Angriffe zwischen Spielern, Kämpfe werden vom Server berechnet
+6. Shop (In-App-Käufe über Google Play / App Store), Musik und Sound, Tutorial
