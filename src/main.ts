@@ -6,7 +6,7 @@ import * as P from './core/player';
 import { BLOCK_TEXT, buildingSheet, renderBase } from './ui/base';
 import { renderHeroes } from './ui/heroes';
 import { isCampaignView, renderMap, scrollMapToCurrent, stageSheet } from './ui/map';
-import { actions, app, closeSheet, fmt, openSheet, patch, pic, refreshSheet, RES_IMG, RES_NAMES, toast, updateTimers } from './ui/shared';
+import { actions, app, closeSheet, fmt, img, openSheet, patch, pic, refreshSheet, RES_IMG, RES_NAMES, toast, updateTimers } from './ui/shared';
 import { inBattle } from './ui/battles';
 import { renderTroops } from './ui/troops';
 import { mountWorld, renderWorld, updateWorldMarches } from './ui/world';
@@ -148,6 +148,8 @@ function tick() {
 }
 
 // ---------- Start ----------
+// Feste Bilder in index.html auf eigene Grafiken umstellen, falls vorhanden
+document.querySelectorAll<HTMLImageElement>('img[data-img]').forEach((el) => (el.src = img(el.dataset.img!)));
 // Ton erst nach der ersten Berührung (Browser-Regel)
 document.addEventListener('pointerdown', () => audio.unlock(), { once: true });
 P.update(player, Date.now());

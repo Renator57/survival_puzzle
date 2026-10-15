@@ -6,6 +6,7 @@ import { canUseSkill, movesLeft, swap, useSkill, type Battle, type BattleEvent, 
 import { ZOMBIES, type ZombieKind } from '../core/content';
 import { heroDef, type HeroId } from '../core/heroes';
 import { audio } from '../audio';
+import { hasArt, img } from '../art';
 import { RARITY_COLORS } from './colors';
 
 export const WIDTH = 720;
@@ -30,6 +31,9 @@ const ZOMBIE_LOOK: Record<ZombieKind, { key: string; tint?: number; badge?: stri
   boss: { key: 'zombie-boss' },
   titan: { key: 'zombie-boss', tint: 0xff9a8a },
 };
+
+// Mit eigenem Bild für einen Zombie-Typ entfallen Färbung und Symbol
+const lookOf = (kind: ZombieKind) => (hasArt(`zombie-${kind}`) ? { key: `zombie-${kind}` } as { key: string; tint?: number; badge?: string } : ZOMBIE_LOOK[kind]);
 
 const hex = (css: string) => parseInt(css.slice(1), 16);
 
@@ -116,15 +120,20 @@ export class BattleScene extends Phaser.Scene {
   }
 
   preload() {
-    for (const h of this.battle.heroes) this.load.image(`hero-${h.id}`, `img/hero-${h.id}.webp`);
-    for (const kind of ['walker', 'runner', 'brute', 'boss']) this.load.image(`zombie-${kind}`, `img/zombie-${kind}.webp`);
-    for (let c = 0; c < TILE_COLORS.length; c++) this.load.image(`tile-${c}`, `img/tile-${c}.webp`);
-    for (const k of ['ui-boom', 'ui-shield', 'ui-bomb', 'ui-virus']) this.load.image(k, `img/${k}.webp`);
+    const load = (key: string) => this.load.image(key, img(key));
+    for (const h of this.battle.heroes) load(`hero-${h.id}`);
+    for (const kind of ['walker', 'runner', 'brute', 'boss']) load(`zombie-${kind}`);
+    // Eigene Bilder für Spezial-Zombies, falls vorhanden
+    for (const kind of ['shielder', 'bomber', 'healer', 'titan', 'spitter']) if (hasArt(`zombie-${kind}`)) load(`zombie-${kind}`);
+    for (let c = 0; c < TILE_COLORS.length; c++) load(`tile-${c}`);
+    for (const k of ['ui-boom', 'ui-shield', 'ui-bomb', 'ui-virus']) load(k);
+    if (hasArt('bg-battle')) load('bg-battle');
   }
 
   create() {
     this.makeTextures();
     this.add.image(0, 0, 'backdrop').setOrigin(0);
+    if (hasArt('bg-battle')) this.add.image(WIDTH / 2, 0, 'bg-battle').setOrigin(0.5, 0).setDisplaySize(WIDTH, GROUND_Y + 60);
     this.createHud();
     this.createEnemies(this.battle.enemies);
     this.createHeroes();
@@ -218,7 +227,7 @@ export class BattleScene extends Phaser.Scene {
   private createEnemies(enemies: Enemy[], walkIn = false) {
     enemies.forEach((enemy, i) => {
       const z = ZOMBIES[enemy.kind];
-      const look = ZOMBIE_LOOK[enemy.kind];
+      const look = lookOf(enemy.kind);
       const x = this.enemyX(i, enemies.length);
       const size = z.size * (enemies.length > 3 ? 0.85 : 1);
       const container = this.add.container(walkIn ? x + 500 : x, GROUND_Y);
@@ -565,7 +574,7 @@ export class BattleScene extends Phaser.Scene {
     enemy.body.setTintMode(Phaser.TintModes.FILL).setTint(0xffffff);
     this.time.delayedCall(70, () => {
       enemy.body.setTintMode(Phaser.TintModes.MULTIPLY);
-      const look = ZOMBIE_LOOK[this.enemyKind(event.enemyUid)];
+      const look = lookOf(this.enemyKind(event.enemyUid));
       if (look?.tint) enemy.body.setTint(look.tint);
       else enemy.body.clearTint();
     });

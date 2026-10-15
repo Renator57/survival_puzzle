@@ -2,7 +2,9 @@
 import type { Resources } from '../core/content';
 import type { Player } from '../core/player';
 
-export const img = (name: string) => `img/${name}.webp`;
+import { img } from '../art';
+
+export { img };
 export const pic = (name: string, cls = 'ic') => `<img class="${cls}" src="${img(name)}" alt="" draggable="false">`;
 
 export const RES_IMG: Record<keyof Resources, string> = { food: 'res-food', wood: 'res-wood', steel: 'res-steel' };

@@ -1,6 +1,7 @@
 // Einsatzkarte: Landschaft als SVG, Level als Orte entlang einer Straße (unten = Start).
 import { STAGES, ZOMBIES, type ZombieKind } from '../core/content';
 import { claimStarChest, isStageUnlocked, recommendedPower, STAR_CHESTS, stageReward, teamPower, totalStars, type Player } from '../core/player';
+import { hasArt } from '../art';
 import { bossTriesLeft } from '../core/events';
 import { renderEvents } from './events';
 import { actions, app, costChips, fmt, img, openSheet, pic, refreshSheet, toast } from './shared';
@@ -206,6 +207,8 @@ export const ZOMBIE_IMG: Record<ZombieKind, string> = {
 const ZOMBIE_BADGE: Partial<Record<ZombieKind, string>> = { shielder: 'ui-shield', bomber: 'ui-bomb', healer: 'ui-virus' };
 
 export function foeHtml(k: ZombieKind) {
+  // Eigenes Bild für diesen Zombie-Typ? Dann ohne Färbung und Symbol
+  if (hasArt(`zombie-${k}`)) return `<span class="foe" title="${ZOMBIE_NAMES(k)}">${pic(`zombie-${k}`)}</span>`;
   return `<span class="foe ${k}" title="${ZOMBIE_NAMES(k)}">${pic(ZOMBIE_IMG[k])}${ZOMBIE_BADGE[k] ? pic(ZOMBIE_BADGE[k]!, 'foe-badge') : ''}</span>`;
 }
 

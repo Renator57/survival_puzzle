@@ -1058,16 +1058,6 @@ button { font: inherit; color: inherit; }
       radial-gradient(circle at 50% 120%, #ff7a2f22, transparent 60%),
       #07080c;
   }
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: url('/img/zombie-walker.webp') 6% 82% / 180px no-repeat, url('/img/zombie-brute.webp') 94% 18% / 150px no-repeat,
-      url('/img/deco-ruin.webp') 12% 18% / 120px no-repeat, url('/img/deco-ruin.webp') 90% 80% / 140px no-repeat;
-    opacity: 0.12;
-    filter: grayscale(0.4);
-    pointer-events: none;
-  }
   #app { box-shadow: 0 0 0 1px #ffffff14, 0 0 80px #000; }
 }
 
@@ -1182,3 +1172,11 @@ button { font: inherit; color: inherit; }
 .awakened .portrait-fx .aura { inset: -10%; background: radial-gradient(circle, #ffd34d88 0%, transparent 60%), repeating-conic-gradient(#ffd34d55 0 8deg, transparent 8deg 22deg); animation: spin-plain 8s linear infinite; }
 .team-slot.awakened, .hero-tile.awakened { border-color: #ffd34d; box-shadow: 0 0 18px #ffd34d66, 0 6px 14px #0008; }
 @keyframes goldshine { to { background-position: -200% 0; } }
+
+/* ---------- Grafik-Übersicht ---------- */
+.art-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.art-cell { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border-radius: 10px; background: #0005; border: 1px solid var(--line); opacity: 0.55; }
+.art-cell.done { opacity: 1; border-color: var(--ok); }
+.art-cell .ic { width: 40px; height: 40px; }
+.art-cell small { font-size: 9px; font-weight: 800; color: var(--muted); word-break: break-all; text-align: center; }
+.art-opt { display: grid; place-items: center; width: 40px; height: 40px; font-size: 8px; font-weight: 900; color: var(--muted); }
