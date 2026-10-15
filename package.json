@@ -1,0 +1,29 @@
+{
+  "name": "survival-puzzle",
+  "version": "0.1.0",
+  "description": "Handy-Spiel: Match-3-Kämpfe gegen Zombies + Basisbau",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "android": "npm run build && npx cap sync android && npx cap open android",
+    "ios": "npm run build && npx cap sync ios && npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3",
+    "phaser": "^4.2.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
+  },
+  "private": true,
+  "type": "module",
+  "license": "UNLICENSED"
+}
