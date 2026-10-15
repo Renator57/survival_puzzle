@@ -14,6 +14,7 @@ import { armySize, unitDef, UNITS, type Army, type UnitId } from './army';
 import { processMarches, type March, type Report, type TileState } from './world';
 import { emptyQuestState, emptyStats, rollDay, type QuestState, type Stats } from './quests';
 import { emptyEventState, rollEvents, type EventState } from './events';
+import { completeFacilities, techValue, type ItemId, type TechId } from './facilities';
 
 export const SAVE_VERSION = 2;
 export const RESOURCE_IDS: ResourceId[] = ['food', 'wood', 'steel'];
@@ -21,6 +22,7 @@ export const RESOURCE_IDS: ResourceId[] = ['food', 'wood', 'steel'];
 export interface BuildingState {
   level: number;
   upgradeEndsAt: number | null;
+  upgradeStartAt?: number;
 }
 
 export interface Training {
@@ -51,12 +53,17 @@ export interface Player {
   stats: Stats; // Zähler für Aufgaben
   quests: QuestState;
   events: EventState;
+  research: Partial<Record<TechId, number>>;
+  researching: { tech: TechId; startAt: number; endsAt: number } | null;
+  wounded: Army;
+  healing: { units: Army; startAt: number; endsAt: number } | null;
+  items: Partial<Record<ItemId, number>>;
   nextId: number;
   lastUpdate: number;
 }
 
 const START_LEVELS: Record<BuildingId, number> = {
-  hq: 1, farm: 1, sawmill: 1, steelworks: 0, warehouse: 1, wall: 0, barracks: 1, workshop: 0,
+  hq: 1, farm: 1, sawmill: 1, steelworks: 0, warehouse: 1, wall: 0, barracks: 1, workshop: 0, hospital: 0, lab: 0,
 };
 
 export function createPlayer(now: number): Player {
@@ -81,6 +88,11 @@ export function createPlayer(now: number): Player {
     stats: emptyStats(),
     quests: emptyQuestState(),
     events: emptyEventState(),
+    research: {},
+    researching: null,
+    wounded: {},
+    healing: null,
+    items: { speed5m: 3, speed1h: 1 },
     nextId: 1,
     lastUpdate: now,
   };
@@ -98,7 +110,8 @@ export function capacity(player: Player): number {
 }
 
 export function productionRate(player: Player, resource: ResourceId): number {
-  return BUILDINGS.filter((b) => b.produces === resource).reduce((sum, b) => sum + rateAt(b, player.buildings[b.id].level), 0);
+  const base = BUILDINGS.filter((b) => b.produces === resource).reduce((sum, b) => sum + rateAt(b, player.buildings[b.id].level), 0);
+  return base * (1 + techValue(player, resource));
 }
 
 export function wallBonus(player: Player): number {
@@ -118,6 +131,10 @@ export function upgradeSeconds(b: BuildingDef, level: number): number {
   return Math.round(b.baseTime * 1.7 ** level);
 }
 
+// Bauzeit inkl. Forschung „Bautechnik“
+export const buildSeconds = (player: Player, b: BuildingDef, level: number) =>
+  Math.max(1, Math.round(upgradeSeconds(b, level) * (1 - techValue(player, 'build'))));
+
 export const canAfford = (player: Player, cost: Resources) => RESOURCE_IDS.every((r) => player.resources[r] >= cost[r]);
 
 function pay(player: Player, cost: Resources) {
@@ -131,8 +148,10 @@ export function update(player: Player, now: number) {
     if (s.upgradeEndsAt !== null && s.upgradeEndsAt <= now) {
       s.level += 1;
       s.upgradeEndsAt = null;
+      delete s.upgradeStartAt;
     }
   }
+  completeFacilities(player, now);
   for (const q of ['barracks', 'workshop'] as const) {
     const t = player.queues[q];
     if (t && t.endsAt <= now) {
@@ -174,7 +193,8 @@ export function startUpgrade(player: Player, id: BuildingId, now: number): Upgra
   const b = def(id);
   const s = player.buildings[id];
   pay(player, upgradeCost(b, s.level));
-  s.upgradeEndsAt = now + upgradeSeconds(b, s.level) * 1000;
+  s.upgradeStartAt = now;
+  s.upgradeEndsAt = now + buildSeconds(player, b, s.level) * 1000;
   player.stats.upgrades += 1;
   return null;
 }
@@ -207,7 +227,7 @@ export const trainCost = (unit: UnitId, amount: number): Resources => {
 
 export function trainSeconds(player: Player, unit: UnitId, amount: number): number {
   const u = unitDef(unit);
-  return Math.max(1, Math.round((u.seconds * amount) / trainSpeed(player.buildings[u.building].level)));
+  return Math.max(1, Math.round(((u.seconds * amount) / trainSpeed(player.buildings[u.building].level)) * (1 - techValue(player, 'train'))));
 }
 
 export function maxTrainable(player: Player, unit: UnitId): number {
@@ -329,6 +349,11 @@ export function deserialize(json: string, now: number): Player {
     stats: { ...fresh.stats, ...data.stats },
     quests: { ...fresh.quests, ...data.quests },
     events: { ...fresh.events, ...data.events },
+    research: { ...data.research },
+    researching: data.researching ?? null,
+    wounded: { ...data.wounded },
+    healing: data.healing ?? null,
+    items: data.items ?? fresh.items,
     version: SAVE_VERSION,
   };
 }

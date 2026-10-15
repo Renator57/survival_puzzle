@@ -1,6 +1,7 @@
 // Helden-System: Seltenheiten, Fraktionen, Sterne, Talentbaum, Kombos, Truppen-Boni und Beschwörung.
 // Reine Logik ohne Grafik – kann so auch auf dem Server laufen (Beschwörungen müssen dort passieren!).
 import type { UnitId } from './army';
+import { techValue } from './facilities';
 import type { Player } from './player';
 
 export type HeroId = string;
@@ -361,6 +362,11 @@ export function troopBuffs(player: Player): Buffs {
     add(buffs.defense, 'all', talentValue(s, 'troopDefense'));
     buffs.load += talentValue(s, 'load');
   }
+  // Forschung
+  add(buffs.attack, 'all', techValue(player, 'attack'));
+  add(buffs.defense, 'all', techValue(player, 'defense'));
+  add(buffs.hp, 'all', techValue(player, 'hp'));
+  buffs.gather += techValue(player, 'gather');
   const bonus = teamBonus(player.team);
   add(buffs.attack, 'all', bonus.troopAttack);
   buffs.load += bonus.load;

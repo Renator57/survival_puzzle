@@ -3,6 +3,7 @@
 // dieselben Daten (und echte Spieler statt der simulierten Mitspieler).
 import { armyLoad, armySize, armySpeed, fight, fighters, type Army, type UnitId } from './army';
 import type { ResourceId, Resources } from './content';
+import { sendToHospital, techValue } from './facilities';
 import { troopBuffs } from './heroes';
 import type { Player } from './player';
 import { createRng, nextFloat, nextInt } from './rng';
@@ -191,7 +192,7 @@ export const travelMs = (world: World, tile: WorldTile, army: Army, speedBonus =
 // Sammeltempo inkl. Helden-Bonus
 export const gatherRateFor = (player: Player, level: number) => gatherRate(level) * (1 + troopBuffs(player).gather);
 
-export const marchSlots = (player: Player) => 2 + Math.floor((player.buildings.hq.level - 1) / 4);
+export const marchSlots = (player: Player) => 2 + Math.floor((player.buildings.hq.level - 1) / 4) + techValue(player, 'march');
 
 // ---------- Märsche ----------
 export function sendMarch(player: Player, tileKeyStr: string, kind: March['kind'], units: Army, now: number): string | null {
@@ -269,6 +270,8 @@ function arrive(player: Player, m: March, world: World) {
   const bot = tile.kind === 'city' ? botOf(world, tile) : null;
   const enemy = bot ? bot.army : hordeArmy(tile.level);
   const result = fight(m.units, enemy, bot ? 1 : hordeScale(tile.level), 1, troopBuffs(player));
+  const wounded = sendToHospital(player, result.attackerLosses);
+  const woundedText = wounded ? ` ${wounded} Verletzte liegen im Lazarett.` : '';
   m.units = result.attackerLeft;
   m.state = 'back';
   m.returnAt = at + m.travelMs;
@@ -277,7 +280,7 @@ function arrive(player: Player, m: March, world: World) {
   if (!result.attackerWon) {
     report(player, {
       at, win: false, title: `Niederlage gegen ${name}`, losses: result.attackerLosses, enemyLosses: result.defenderLosses,
-      text: 'Dein Trupp wurde zurückgeschlagen. Achte auf das Konter-Dreieck!',
+      text: `Dein Trupp wurde zurückgeschlagen. Achte auf das Konter-Dreieck!${woundedText}`,
     });
     return;
   }
@@ -300,7 +303,7 @@ function arrive(player: Player, m: March, world: World) {
   player.diamonds += diamonds;
   report(player, {
     at, win: true, title: `Sieg gegen ${name}`, loot, losses: result.attackerLosses, enemyLosses: result.defenderLosses,
-    text: `${bot ? 'Die Stadt wurde geplündert und steht jetzt unter Schutzschild.' : 'Die Horde ist vernichtet.'}${diamonds ? ` +${diamonds} Diamanten!` : ''}`,
+    text: `${bot ? 'Die Stadt wurde geplündert und steht jetzt unter Schutzschild.' : 'Die Horde ist vernichtet.'}${diamonds ? ` +${diamonds} Diamanten!` : ''}${woundedText}`,
   });
 }
 

@@ -1,6 +1,8 @@
 // Basis: Lager von oben mit antippbaren Gebäuden, dazu das Detailfenster zum Ausbauen.
 import { BUILDINGS, type BuildingDef, type BuildingId } from '../core/content';
 import * as P from '../core/player';
+import { TECHS } from '../core/facilities';
+import { hospitalSection, labSection, speedBtn, totalItems } from './facilities';
 import { questBanner } from './quests';
 import { costChips, fmt, fmtTime, pic, RES_IMG, RES_NAMES, timer } from './shared';
 
@@ -13,15 +15,19 @@ const LAYOUT: Record<BuildingId, { x: number; y: number; w: number; img: string 
   wall: { x: 50, y: 91, w: 17, img: 'b-wall' },
   barracks: { x: 20, y: 23, w: 18, img: 'b-barracks' },
   workshop: { x: 80, y: 23, w: 18, img: 'b-workshop' },
+  hospital: { x: 36, y: 63, w: 15, img: 'b-hospital' },
+  lab: { x: 64, y: 63, w: 15, img: 'b-lab' },
 };
 
 const DECOR: [string, number, number, number][] = [
   ['deco-tree', 4, 6, 11], ['deco-tree2', 15, 3, 9], ['deco-tree', 86, 4, 10], ['deco-tree2', 96, 14, 9],
   ['deco-tree', 3, 36, 9], ['deco-tree2', 97, 33, 10], ['deco-tree', 2, 70, 10], ['deco-tree2', 97, 66, 9],
   ['deco-tree', 6, 95, 11], ['deco-tree2', 94, 95, 11], ['deco-rock', 90, 84, 7], ['deco-rock', 9, 83, 6],
-['deco-barrel', 60, 63, 6], ['deco-barrel', 40, 63, 6],
-  ['deco-log', 93, 60, 8], ['deco-car', 50, 51, 9],
+['deco-barrel', 8, 58, 6], ['deco-barrel', 92, 74, 6],
+  ['deco-log', 93, 60, 8],
 ];
+
+const TECH_COUNT = (lab: number) => TECHS.filter((t) => t.lab <= lab).length;
 
 export const BLOCK_TEXT: Record<Exclude<P.UpgradeBlock, null>, string> = {
   busy: 'Der Bautrupp ist gerade beschäftigt.',
@@ -75,7 +81,7 @@ function buildingState(player: P.Player, b: BuildingDef) {
 export function renderBase(player: P.Player): string {
   const active = P.activeUpgrade(player);
   const activeState = active && player.buildings[active.id];
-  const total = active ? P.upgradeSeconds(active, activeState!.level) * 1000 : 0;
+  const startAt = active ? activeState!.upgradeStartAt ?? activeState!.upgradeEndsAt! - P.buildSeconds(player, active, activeState!.level) * 1000 : 0;
 
   const buildings = BUILDINGS.map((b) => {
     const { s, upgrading, locked, ready } = buildingState(player, b);
@@ -98,21 +104,24 @@ export function renderBase(player: P.Player): string {
   return `
     <div class="screen-head">
       <div><h1>Deine Basis</h1><p>Tippe ein Gebäude an, um es auszubauen.</p></div>
-      <div class="pill">${pic('ui-muscle')} ${fmt(P.teamPower(player))}</div>
+      <div class="head-pills">
+        <button class="pill bag" data-action="inventory">${pic('ui-bag')} ${totalItems(player)}</button>
+        <div class="pill">${pic('ui-muscle')} ${fmt(P.teamPower(player))}</div>
+      </div>
     </div>
     ${questBanner(player)}
     <div class="builder ${active ? 'busy' : ''}">
       ${pic('ui-hammer')}
       ${active
         ? `<div class="builder-main"><b>${active.name}</b> → Stufe ${activeState!.level + 1}
-             <div class="bar"><i data-pstart="${activeState!.upgradeEndsAt! - total}" data-pend="${activeState!.upgradeEndsAt}"></i></div></div>
-           ${timer(activeState!.upgradeEndsAt!, 'builder-time')}`
+             <div class="bar"><i data-pstart="${startAt}" data-pend="${activeState!.upgradeEndsAt}"></i></div></div>
+           ${timer(activeState!.upgradeEndsAt!, 'builder-time')}${speedBtn(`b:${active.id}`)}`
         : '<div class="builder-main"><b>Bautrupp bereit</b><span class="muted"> – wähle ein Gebäude</span></div>'}
     </div>
     <div class="town">
       ${townSvg(player)}
       ${decor}
-      <img class="decor fire" src="img/deco-fire.webp" style="left:50%;top:59%;width:9%" alt="">
+      <img class="decor fire" src="img/deco-fire.webp" style="left:50%;top:53%;width:8%" alt="">
       ${buildings}
     </div>
     <div class="prod">
@@ -136,6 +145,8 @@ function effectRows(b: BuildingDef, level: number): [string, string, string][] {
     ];
   }
   if (b.id === 'workshop') return [['Plätze für Sammelwagen', String(3 * level), String(3 * next)]];
+  if (b.id === 'hospital') return [['Betten im Lazarett', fmt(level * 120), fmt(next * 120)]];
+  if (b.id === 'lab') return [['Freigeschaltete Forschungen', String(TECH_COUNT(level)), String(TECH_COUNT(next))]];
   if (b.id === 'wall') return [['Team-Lebenspunkte', `+${Math.round(P.wallBonusAt(level) * 100)} %`, `+${Math.round(P.wallBonusAt(next) * 100)} %`]];
   return [['Max. Gebäudestufe', String(level), String(next)]];
 }
@@ -149,20 +160,21 @@ export function buildingSheet(player: P.Player, id: BuildingId): string {
   const rows = effectRows(b, s.level)
     .map(([label, now, next]) => `<div class="effect-row"><span>${label}</span><b>${now}</b><span class="arrow">→</span><b class="next">${next}</b></div>`)
     .join('');
-  const total = P.upgradeSeconds(b, s.level) * 1000;
+  const startAt = s.upgradeStartAt ?? (s.upgradeEndsAt ?? 0) - P.buildSeconds(player, b, s.level) * 1000;
 
   let action: string;
   if (locked) action = `<button class="btn big" disabled>${pic('ui-lock')} Ab Hauptquartier Stufe ${b.unlockHq}</button>`;
   else if (upgrading) {
     action = `<div class="upgrade-progress">
-        <div class="bar big"><i data-pstart="${s.upgradeEndsAt! - total}" data-pend="${s.upgradeEndsAt}"></i></div>
+        <div class="bar big"><i data-pstart="${startAt}" data-pend="${s.upgradeEndsAt}"></i></div>
         <p>${pic('ui-hourglass')} Fertig in ${timer(s.upgradeEndsAt!)}</p>
+        <button class="btn big epicbtn" data-action="speedup" data-arg="b:${id}">${pic('item-speed5m')} Beschleunigen</button>
       </div>`;
   } else if (maxed) action = '<p class="hint center">Maximale Stufe erreicht.</p>';
   else {
     action = `
       <div class="row-between"><span class="label">Kosten</span>
-        <span class="chips">${costChips(cost, player)}<span class="chip">${pic('ui-hourglass')}${fmtTime(P.upgradeSeconds(b, s.level))}</span></span></div>
+        <span class="chips">${costChips(cost, player)}<span class="chip">${pic('ui-hourglass')}${fmtTime(P.buildSeconds(player, b, s.level))}</span></span></div>
       ${block && block !== 'resources' ? `<p class="hint center">${BLOCK_TEXT[block]}</p>` : ''}
       <button class="btn big primary" data-action="upgrade" data-arg="${id}" ${block ? 'disabled' : ''}>
         ${pic('ui-hammer')} ${s.level === 0 ? 'Bauen' : `Auf Stufe ${s.level + 1} ausbauen`}
@@ -179,5 +191,7 @@ export function buildingSheet(player: P.Player, id: BuildingId): string {
       </div>
     </div>
     ${locked ? '' : `<div class="effects">${rows}</div>`}
-    ${action}`;
+    ${action}
+    ${id === 'hospital' && !locked ? hospitalSection(player) : ''}
+    ${id === 'lab' && !locked ? labSection(player) : ''}`;
 }

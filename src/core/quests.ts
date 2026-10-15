@@ -1,6 +1,7 @@
 // Aufgaben: Hauptaufgaben (führen neue Spieler durchs Spiel), tägliche Aufgaben und Login-Belohnung.
 import { STAGES, type Resources } from './content';
 import { heroDef, type Faction } from './heroes';
+import type { ItemId } from './facilities';
 import type { Player } from './player';
 
 export interface Stats {
@@ -18,7 +19,7 @@ export const emptyStats = (): Stats => ({
   battlesWon: 0, trained: 0, gathered: 0, hordes: 0, plunders: 0, upgrades: 0, heroTrains: 0, summons: 0,
 });
 
-export type Reward = Partial<Resources> & { diamonds?: number };
+export type Reward = Partial<Resources> & { diamonds?: number; items?: Partial<Record<ItemId, number>> };
 export type GoTo = 'base' | 'troops' | 'map' | 'world' | 'heroes';
 
 export interface MainQuest {
@@ -42,7 +43,7 @@ export const MAIN_QUESTS: MainQuest[] = [
   { id: 'm2', text: 'Gewinne Level 1 auf der Einsatzkarte', tip: 'Tausche Steine – jede Farbe lässt einen Helden angreifen.', goto: 'map',
     progress: (p) => [p.stagesCleared, 1], reward: { diamonds: 30 } },
   { id: 'm3', text: 'Bilde 20 Soldaten aus', tip: 'In „Truppen“ eine Einheit antippen und ausbilden.', goto: 'troops',
-    progress: (p) => [p.stats.trained, 20], reward: { food: 600, wood: 600 } },
+    progress: (p) => [p.stats.trained, 20], reward: { food: 600, wood: 600, items: { speed5m: 3 } } },
   { id: 'm4', text: 'Schicke einen Sammeltrupp los', tip: 'Auf der Weltkarte ein Feld mit Weizen, Wald oder Mine antippen.', goto: 'world',
     progress: (p) => [p.stats.gathered > 0 || p.marches.some((m) => m.kind === 'gather') ? 1 : 0, 1], reward: { wood: 800 } },
   { id: 'm5', text: 'Trainiere einen Helden auf Stufe 3', tip: 'Helden → Sammlung → Held antippen → Training.', goto: 'heroes',
@@ -87,9 +88,9 @@ export const DAILY_QUESTS: DailyQuest[] = [
   { id: 'd-train', text: 'Bilde 50 Soldaten aus', stat: 'trained', goal: 50, reward: { wood: 800 } },
   { id: 'd-gather', text: 'Sammle 2.000 Rohstoffe auf der Weltkarte', stat: 'gathered', goal: 2000, reward: { steel: 200 } },
   { id: 'd-horde', text: 'Besiege 2 Zombie-Horden', stat: 'hordes', goal: 2, reward: { diamonds: 10 } },
-  { id: 'd-build', text: 'Starte einen Bau oder trainiere einen Helden', stat: 'upgrades', goal: 1, reward: { food: 500, wood: 500 } },
+  { id: 'd-build', text: 'Starte einen Bau oder trainiere einen Helden', stat: 'upgrades', goal: 1, reward: { food: 500, wood: 500, items: { speed5m: 2 } } },
 ];
-export const DAILY_CHEST: Reward = { diamonds: 30 };
+export const DAILY_CHEST: Reward = { diamonds: 30, items: { speed1h: 1 } };
 
 export const dayKey = (now: number) => new Date(now).toISOString().slice(0, 10);
 
@@ -112,7 +113,8 @@ export const dailyChestReady = (p: Player) => DAILY_QUESTS.every((q) => p.quests
 
 // ---------- Login-Belohnung ----------
 export const LOGIN_REWARDS: Reward[] = [
-  { food: 1000 }, { wood: 1000 }, { diamonds: 20 }, { steel: 300 }, { food: 2000, wood: 2000 }, { diamonds: 40 }, { diamonds: 100 },
+  { food: 1000 }, { wood: 1000, items: { speed5m: 3 } }, { diamonds: 20 }, { steel: 300, items: { speed1h: 1 } },
+  { food: 2000, wood: 2000 }, { diamonds: 40, items: { speed1h: 2 } }, { diamonds: 100, items: { speed8h: 1 } },
 ];
 
 export const loginReady = (p: Player, now: number) => p.quests.lastLogin !== dayKey(now);
@@ -130,6 +132,7 @@ export function claimLogin(p: Player, now: number): Reward | null {
 export function grant(p: Player, reward: Reward) {
   for (const r of ['food', 'wood', 'steel'] as const) p.resources[r] += reward[r] ?? 0;
   p.diamonds += reward.diamonds ?? 0;
+  for (const [k, n] of Object.entries(reward.items ?? {})) p.items[k as ItemId] = (p.items[k as ItemId] ?? 0) + n!;
 }
 
 export function claimMain(p: Player): Reward | null {

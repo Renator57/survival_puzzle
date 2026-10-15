@@ -30,9 +30,9 @@ const progressScale = (p: Player) => 1.17 ** Math.max(0, p.stagesCleared - 1);
 // ---------- Titan ----------
 export const BOSS_TIERS: { damage: number; reward: Reward }[] = [
   { damage: 300, reward: { food: 800, wood: 800 } },
-  { damage: 900, reward: { steel: 300, diamonds: 5 } },
+  { damage: 900, reward: { steel: 300, diamonds: 5, items: { speed5m: 2 } } },
   { damage: 2200, reward: { food: 2000, wood: 2000, diamonds: 10 } },
-  { damage: 4500, reward: { steel: 1000, diamonds: 15 } },
+  { damage: 4500, reward: { steel: 1000, diamonds: 15, items: { speed1h: 1 } } },
   { damage: 9000, reward: { food: 5000, wood: 5000, diamonds: 25 } },
   { damage: 18000, reward: { steel: 3000, diamonds: 40 } },
 ];
@@ -66,6 +66,10 @@ export function finishBoss(p: Player, damage: number): { reward: Reward; tiers: 
 
 function addReward(into: Reward, r: Reward) {
   for (const k of ['food', 'wood', 'steel', 'diamonds'] as const) if (r[k]) into[k] = (into[k] ?? 0) + r[k]!;
+  for (const [k, n] of Object.entries(r.items ?? {})) {
+    into.items ??= {};
+    into.items[k as keyof typeof into.items] = (into.items[k as keyof typeof into.items] ?? 0) + n!;
+  }
 }
 
 // ---------- Dungeons ----------

@@ -10,6 +10,7 @@ export function rewardChips(r: Q.Reward) {
   for (const [k, img] of [['food', 'res-food'], ['wood', 'res-wood'], ['steel', 'res-steel']] as const) {
     if (r[k]) parts.push(`<span class="chip">${pic(img)}+${fmt(r[k]!)}</span>`);
   }
+  for (const [id, n] of Object.entries(r.items ?? {})) parts.push(`<span class="chip">${pic(`item-${id}`)}×${n}</span>`);
   return parts.join('');
 }
 

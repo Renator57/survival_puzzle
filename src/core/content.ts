@@ -72,7 +72,7 @@ export const STAGES: StageDef[] = Array.from({ length: 24 }, (_, i) => {
   };
 });
 
-export type BuildingId = 'hq' | 'farm' | 'sawmill' | 'steelworks' | 'warehouse' | 'wall' | 'barracks' | 'workshop';
+export type BuildingId = 'hq' | 'farm' | 'sawmill' | 'steelworks' | 'warehouse' | 'wall' | 'barracks' | 'workshop' | 'hospital' | 'lab';
 
 export interface BuildingDef {
   id: BuildingId;
@@ -103,6 +103,10 @@ export const BUILDINGS: BuildingDef[] = [
     baseCost: { food: 200, wood: 250, steel: 0 }, baseTime: 6 },
   { id: 'workshop', name: 'Werkstatt', icon: '🧰', text: 'Baut Sammelwagen mit riesiger Ladefläche für die Weltkarte.', unlockHq: 2,
     baseCost: { food: 150, wood: 300, steel: 60 }, baseTime: 8 },
+  { id: 'hospital', name: 'Lazarett', icon: '🏥', text: 'Verletzte Soldaten aus Weltkarten-Kämpfen werden hier geheilt statt zu sterben.', unlockHq: 2,
+    baseCost: { food: 300, wood: 400, steel: 50 }, baseTime: 8 },
+  { id: 'lab', name: 'Forschungszentrum', icon: '🔬', text: 'Erforsche Technologien mit dauerhaften Boni.', unlockHq: 3,
+    baseCost: { food: 500, wood: 500, steel: 150 }, baseTime: 10 },
 ];
 
 export const MAX_HQ_LEVEL = 15;

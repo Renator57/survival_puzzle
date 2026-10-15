@@ -1,5 +1,6 @@
 // Truppen: Konter-Dreieck, Einheiten ausbilden, laufende Märsche und Kampfberichte.
 import { audio } from '../audio';
+import { speedBtn } from './facilities';
 import { UNITS, armySize, fighters, unitDef, type Army, type UnitId } from '../core/army';
 import * as P from '../core/player';
 import { getWorld, marchSlots, recallMarch, type March } from '../core/world';
@@ -55,7 +56,7 @@ export function renderTroops(player: P.Player): string {
     return `<div class="queue">${pic(unitImg(t.unit))}
       <div class="row-main"><b>${t.amount} ${unitDef(t.unit).plural}</b>
         <div class="bar"><i data-pstart="${t.startAt}" data-pend="${t.endsAt}"></i></div></div>
-      ${timer(t.endsAt, 'builder-time')}</div>`;
+      ${timer(t.endsAt, 'builder-time')}${speedBtn(`q:${q}`)}</div>`;
   }).join('');
 
   const cards = UNITS.map((u) => {

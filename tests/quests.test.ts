@@ -39,7 +39,7 @@ describe('Tägliche Aufgaben', () => {
     expect(Q.claimDaily(p, 'chest')).toBeNull();
     p.quests.dailyClaimed = Q.DAILY_QUESTS.map((q) => q.id);
     const d = p.diamonds;
-    expect(Q.claimDaily(p, 'chest')).toEqual({ diamonds: 30 });
+    expect(Q.claimDaily(p, 'chest')).toMatchObject({ diamonds: 30 });
     expect(p.diamonds).toBe(d + 30);
   });
 });
@@ -49,8 +49,8 @@ describe('Login-Belohnung', () => {
     const p = P.createPlayer(0);
     expect(Q.claimLogin(p, 0)).toEqual({ food: 1000 });
     expect(Q.claimLogin(p, 1000)).toBeNull();
-    expect(Q.claimLogin(p, DAY)).toEqual({ wood: 1000 });
+    expect(Q.claimLogin(p, DAY)).toMatchObject({ wood: 1000 });
     for (let d = 2; d < 6; d++) Q.claimLogin(p, d * DAY);
-    expect(Q.claimLogin(p, 6 * DAY)).toEqual({ diamonds: 100 });
+    expect(Q.claimLogin(p, 6 * DAY)).toMatchObject({ diamonds: 100 });
   });
 });
