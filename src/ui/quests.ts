@@ -1,4 +1,5 @@
 // Aufgaben (Ziel-Banner, Tagesaufgaben, Login-Kalender) und Einstellungen.
+import { ART, PLACEHOLDERS } from '../art-manifest';
 import { audio } from '../audio';
 import * as Q from '../core/quests';
 import type { Player } from '../core/player';
@@ -88,7 +89,25 @@ function settingsSheet(): string {
       <div class="effect-row"><span>Schriften</span><b class="small">Lilita One, Nunito (OFL)</b></div>
       <div class="effect-row"><span>Musik & Sound</span><b class="small">live erzeugt</b></div>
     </div>
+    <button class="btn big" data-action="art-overview">${pic('ui-sparkle')} Grafik-Übersicht (${artDone()}/${artNames().length})</button>
     <button class="btn big danger" data-action="reset-save">Spielstand löschen</button>`;
+}
+
+// ---------- Grafik-Übersicht: welche Bilder sind schon eigene Grafik? ----------
+const OPTIONAL_ART = ['zombie-shielder', 'zombie-bomber', 'zombie-healer', 'zombie-spitter', 'zombie-titan', 'bg-battle'];
+const artNames = () => [...new Set([...PLACEHOLDERS, ...OPTIONAL_ART])].filter((n) => n !== 'LICENSE');
+const artDone = () => artNames().filter((n) => ART.includes(n)).length;
+
+function artSheet(): string {
+  const names = artNames();
+  return `
+    <div class="sheet-hero">${pic('ui-sparkle', 'sheet-img')}<div><p class="kicker">Eigene Grafiken</p><h2>${artDone()} von ${names.length}</h2>
+      <p class="muted">Lege Bilder als <b>art-src/&lt;Name&gt;.png</b> ab und starte <b>npm run art</b>. Anleitung: docs/GRAFIK-ANLEITUNG.md</p></div></div>
+    <div class="art-grid">${names.map((n) => {
+      const done = ART.includes(n);
+      const optional = !PLACEHOLDERS.includes(n);
+      return `<div class="art-cell ${done ? 'done' : ''}">${optional && !done ? '<span class="art-opt">optional</span>' : pic(n)}<small>${n}</small></div>`;
+    }).join('')}</div>`;
 }
 
 // Lautstärke-Regler reagieren sofort
@@ -116,6 +135,7 @@ Object.assign(actions, {
   'claim-daily': (arg: string) => claimed(Q.claimDaily(app.player, arg)),
   'claim-login': () => claimed(Q.claimLogin(app.player, Date.now())),
   settings: () => openSheet(settingsSheet),
+  'art-overview': () => openSheet(artSheet),
   'reset-save': () => {
     if (!confirm('Wirklich den ganzen Spielstand löschen? Das kann man nicht rückgängig machen.')) return;
     closeSheet(true);

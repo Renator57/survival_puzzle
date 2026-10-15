@@ -4,7 +4,7 @@ import * as P from '../core/player';
 import { TECHS } from '../core/facilities';
 import { hospitalSection, labSection, speedBtn, totalItems } from './facilities';
 import { questBanner } from './quests';
-import { costChips, fmt, fmtTime, pic, RES_IMG, RES_NAMES, timer } from './shared';
+import { costChips, fmt, fmtTime, img, pic, RES_IMG, RES_NAMES, timer } from './shared';
 
 const LAYOUT: Record<BuildingId, { x: number; y: number; w: number; img: string }> = {
   hq: { x: 50, y: 29, w: 31, img: 'b-hq' },
@@ -98,7 +98,7 @@ export function renderBase(player: P.Player): string {
     </button>`;
   }).join('');
 
-  const decor = DECOR.map(([name, x, y, w]) => `<img class="decor" src="img/${name}.webp" style="left:${x}%;top:${y}%;width:${w}%" alt="">`).join('');
+  const decor = DECOR.map(([name, x, y, w]) => `<img class="decor" src="${img(name)}" style="left:${x}%;top:${y}%;width:${w}%" alt="">`).join('');
   const cap = P.capacity(player);
 
   return `
@@ -121,7 +121,7 @@ export function renderBase(player: P.Player): string {
     <div class="town">
       ${townSvg(player)}
       ${decor}
-      <img class="decor fire" src="img/deco-fire.webp" style="left:50%;top:53%;width:8%" alt="">
+      <img class="decor fire" src="${img('deco-fire')}" style="left:50%;top:53%;width:8%" alt="">
       ${buildings}
     </div>
     <div class="prod">

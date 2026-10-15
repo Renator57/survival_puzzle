@@ -70,6 +70,12 @@ tests/         Tests der Spielregeln
 
 Balancing (Helden, Zombies, Gebäude, Level) steht komplett in `src/core/content.ts`.
 
+### Eigene Grafiken (KI-Bilder)
+
+Die aktuellen Bilder sind Platzhalter. Eigene Bilder in `art-src/` ablegen und `npm run art` ausführen –
+sie ersetzen die Platzhalter automatisch (Hintergrund wird freigestellt). Komplette Anleitung mit fertigen
+Prompts für alle 122 Bilder: **[docs/GRAFIK-ANLEITUNG.md](docs/GRAFIK-ANLEITUNG.md)**.
+
 ### Grafiken und Schriften
 
 - 3D-Grafiken: [Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji) (MIT), Lizenz in `public/img/LICENSE.txt`
