@@ -1,7 +1,7 @@
 // Einsatzkarte: Landschaft als SVG, Level als Orte entlang einer Straße (unten = Start).
 import { STAGES, ZOMBIES, type ZombieKind } from '../core/content';
-import { isStageUnlocked, recommendedPower, stageReward, teamPower, type Player } from '../core/player';
-import { costChips, fmt, img, pic } from './shared';
+import { claimStarChest, isStageUnlocked, recommendedPower, STAR_CHESTS, stageReward, teamPower, totalStars, type Player } from '../core/player';
+import { actions, app, costChips, fmt, img, openSheet, pic, refreshSheet, toast } from './shared';
 
 const W = 400;
 const GAP = 150;
@@ -151,6 +151,7 @@ export function renderMap(player: Player): string {
         data-action="stage" data-arg="${stage.id}" aria-label="Level ${stage.id}">
       <span class="node-disc">${pic(`place-${Math.floor(i / 3) % 8}`, 'node-img')}</span>
       <span class="node-num">${stage.id}</span>
+      ${cleared ? `<span class="node-stars">${[1, 2, 3].map((n) => `<i class="${n <= (player.stageStars[stage.id] ?? 1) ? 'on' : ''}">★</i>`).join('')}</span>` : ''}
       ${cleared ? `<span class="node-badge ok">${pic('ui-check')}</span>` : ''}
       ${!unlocked ? `<span class="node-badge">${pic('ui-lock')}</span>` : ''}
       ${boss ? `<span class="node-boss">${pic('zombie-boss')}</span>` : ''}
@@ -168,7 +169,7 @@ export function renderMap(player: Player): string {
   return `
     <div class="screen-head">
       <div><h1>Einsatzkarte</h1><p>Erobere die Stadt Ort für Ort zurück.</p></div>
-      <div class="pill">${pic('ui-star')} ${player.stagesCleared}/${STAGES.length}</div>
+      <button class="pill star-pill ${chestReady(player) ? 'ready' : ''}" data-action="star-chests">${pic('ui-star')} ${totalStars(player)}/${STAGES.length * 3}${chestReady(player) ? `<span class="badge">!</span>` : ''}</button>
     </div>
     <div class="map" style="aspect-ratio:${W}/${H}">
       <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${buildLandscape()}${fog}</svg>
@@ -185,6 +186,49 @@ export function scrollMapToCurrent(screen: HTMLElement) {
 }
 
 const ZOMBIE_NAMES = (kind: ZombieKind) => ZOMBIES[kind].name;
+export const ZOMBIE_IMG: Record<ZombieKind, string> = {
+  walker: 'zombie-walker', runner: 'zombie-runner', brute: 'zombie-brute', spitter: 'zombie-walker',
+  shielder: 'zombie-brute', bomber: 'zombie-walker', healer: 'zombie-runner', boss: 'zombie-boss', titan: 'zombie-boss',
+};
+const ZOMBIE_BADGE: Partial<Record<ZombieKind, string>> = { shielder: 'ui-shield', bomber: 'ui-bomb', healer: 'ui-virus' };
+
+export function foeHtml(k: ZombieKind) {
+  return `<span class="foe ${k}" title="${ZOMBIE_NAMES(k)}">${pic(ZOMBIE_IMG[k])}${ZOMBIE_BADGE[k] ? pic(ZOMBIE_BADGE[k]!, 'foe-badge') : ''}</span>`;
+}
+
+const starsInline = (n: number) => `<span class="stars big">${[1, 2, 3].map((i) => `<i class="${i <= n ? 'on' : ''}">★</i>`).join('')}</span>`;
+
+const chestReady = (p: Player) => STAR_CHESTS.some((c, i) => !p.starChests.includes(i) && totalStars(p) >= c.stars);
+
+function chestSheet(): string {
+  const p = app.player;
+  const stars = totalStars(p);
+  return `
+    <div class="sheet-hero">${pic('ui-gift', 'sheet-img')}<div><p class="kicker">Sterne sammeln</p><h2>Sterne-Truhen</h2>
+      <p class="muted">Du hast <b>${stars}</b> von ${STAGES.length * 3} Sternen. Mehr Leben am Kampfende = mehr Sterne.</p></div></div>
+    <div class="list">${STAR_CHESTS.map((c, i) => {
+      const got = p.starChests.includes(i);
+      const ready = !got && stars >= c.stars;
+      return `<div class="list-row quest ${ready ? 'ready' : got ? 'claimed' : ''}">
+        ${pic('ui-gift', 'row-img')}
+        <div class="row-main"><b>${c.stars} Sterne</b>
+          <div class="bar"><i style="width:${Math.min(100, (stars / c.stars) * 100)}%"></i></div>
+          <span class="chips left small">${costChips(c.reward, undefined, '+')}<span class="chip gem">${pic('ui-gem')}+${c.reward.diamonds}</span></span></div>
+        ${got ? '<span class="owned-tag">✓</span>' : `<button class="btn small ${ready ? 'primary' : ''}" data-action="claim-chest" data-arg="${i}" ${ready ? '' : 'disabled'}>Öffnen</button>`}
+      </div>`;
+    }).join('')}</div>`;
+}
+
+Object.assign(actions, {
+  'star-chests': () => openSheet(chestSheet),
+  'claim-chest': (arg: string) => {
+    if (!claimStarChest(app.player, Number(arg))) return;
+    toast('Truhe geöffnet!');
+    app.save();
+    app.render();
+    refreshSheet();
+  },
+});
 
 export function stageSheet(player: Player, stageId: number): string {
   const stage = STAGES[stageId - 1];
@@ -197,8 +241,12 @@ export function stageSheet(player: Player, stageId: number): string {
   const waves = stage.waves.map((wave, w) => `
     <div class="wave-row">
       <span class="wave-no">Welle ${w + 1}</span>
-      <span class="wave-foes">${wave.map((k) => `<span class="foe ${k}" title="${ZOMBIE_NAMES(k)}">${pic(`zombie-${k === 'spitter' ? 'walker' : k}`)}</span>`).join('')}</span>
+      <span class="wave-foes">${wave.map((k) => foeHtml(k)).join('')}</span>
     </div>`).join('');
+  const specials = [...new Set(stage.waves.flat())].filter((k) => ZOMBIE_BADGE[k] || k === 'boss');
+  const tips = specials.map((k) => `<p class="tip">${pic(ZOMBIE_BADGE[k] ?? 'zombie-boss')} <span><b>${ZOMBIES[k].name}:</b> ${ZOMBIES[k].text}</span></p>`).join('')
+    + (stage.obstacles.crates ? `<p class="tip">${pic('b-warehouse')} <span><b>${stage.obstacles.crates} Kisten:</b> zerbrechen, wenn daneben Steine abgeräumt werden.</span></p>` : '')
+    + (stage.obstacles.ice ? `<p class="tip">${pic('ui-ice')} <span><b>${stage.obstacles.ice} Eis-Steine:</b> nicht verschiebbar, tauen durch Treffer daneben auf.</span></p>` : '');
   return `
     <div class="sheet-hero stage-hero">
       ${pic(`place-${Math.floor((stageId - 1) / 3) % 8}`, 'sheet-img')}
@@ -209,6 +257,8 @@ export function stageSheet(player: Player, stageId: number): string {
       </div>
     </div>
     <div class="waves">${waves}</div>
+    ${tips}
+    ${cleared ? `<div class="row-between"><span class="label">Beste Wertung</span>${starsInline(player.stageStars[stageId] ?? 1)}</div>` : ''}
     <div class="row-between">
       <span class="label">Beute</span>
       <span class="chips">${costChips(reward, undefined, '+')}</span>

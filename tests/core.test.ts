@@ -94,7 +94,7 @@ describe('Spielfeld', () => {
 describe('Kampf', () => {
   it('ist mit gleichem Seed reproduzierbar (Grundlage für Server-Prüfung)', () => {
     const run = () => {
-      const battle = createBattle({ stageId: 1, team, hpBonus: 0, seed: 42 });
+      const battle = createBattle({ stage: STAGES[0], team, hpBonus: 0, seed: 42 });
       for (let i = 0; i < 15 && battle.result === 'ongoing'; i++) swap(battle, ...findMove(battle.board));
       return JSON.stringify(battle);
     };
@@ -104,7 +104,7 @@ describe('Kampf', () => {
   it('Level 1 ist mit normalen Zügen schaffbar', () => {
     let wins = 0;
     for (let seed = 1; seed <= 20; seed++) {
-      const battle = createBattle({ stageId: 1, team, hpBonus: 0, seed });
+      const battle = createBattle({ stage: STAGES[0], team, hpBonus: 0, seed });
       for (let i = 0; i < 100 && battle.result === 'ongoing'; i++) {
         swap(battle, ...findMove(battle.board));
         for (const h of battle.heroes) useSkill(battle, h.id);
@@ -115,7 +115,7 @@ describe('Kampf', () => {
   });
 
   it('Zombies greifen an, wenn ihr Zähler abläuft', () => {
-    const battle = createBattle({ stageId: 1, team, hpBonus: 0, seed: 5 });
+    const battle = createBattle({ stage: STAGES[0], team, hpBonus: 0, seed: 5 });
     for (const e of battle.enemies) {
       e.hp = e.maxHp = 1e9;
       e.countdown = 1;
@@ -126,7 +126,7 @@ describe('Kampf', () => {
   });
 
   it('Fähigkeit nur mit voller Energie', () => {
-    const battle = createBattle({ stageId: 1, team, hpBonus: 0, seed: 5 });
+    const battle = createBattle({ stage: STAGES[0], team, hpBonus: 0, seed: 5 });
     expect(useSkill(battle, 'rex')).toBeNull();
     battle.heroes[0].energy = battle.heroes[0].maxEnergy;
     expect(useSkill(battle, 'rex')).not.toBeNull();

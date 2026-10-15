@@ -1,14 +1,33 @@
 // Spielinhalte: Zombies, Gebäude, Level. Hier wird das Balancing eingestellt (Helden: heroes.ts, Truppen: army.ts).
 
-export type ZombieKind = 'walker' | 'runner' | 'brute' | 'spitter' | 'boss';
+export type ZombieKind = 'walker' | 'runner' | 'brute' | 'spitter' | 'shielder' | 'bomber' | 'healer' | 'boss' | 'titan';
 
-export const ZOMBIES: Record<ZombieKind, { name: string; hp: number; attack: number; countdown: number; size: number }> = {
-  walker: { name: 'Streuner', hp: 120, attack: 30, countdown: 3, size: 1 },
-  runner: { name: 'Sprinter', hp: 70, attack: 22, countdown: 2, size: 0.85 },
-  brute: { name: 'Koloss', hp: 320, attack: 70, countdown: 4, size: 1.3 },
-  spitter: { name: 'Spucker', hp: 110, attack: 45, countdown: 3, size: 1 },
-  boss: { name: 'Mutant', hp: 1100, attack: 110, countdown: 3, size: 1.7 },
+export interface ZombieDef {
+  name: string;
+  text: string;
+  hp: number;
+  attack: number;
+  countdown: number;
+  size: number;
+  shield?: number; // schluckt normalen Schaden, Fähigkeiten brechen es sofort
+  crates?: number; // wirft beim Angriff Kisten aufs Feld
+  heal?: number; // heilt andere Zombies statt anzugreifen (Anteil der max. LP)
+}
+
+export const ZOMBIES: Record<ZombieKind, ZombieDef> = {
+  walker: { name: 'Streuner', text: 'Langsam, aber zäh.', hp: 120, attack: 30, countdown: 3, size: 1 },
+  runner: { name: 'Sprinter', text: 'Greift oft an, hält wenig aus.', hp: 70, attack: 22, countdown: 2, size: 0.85 },
+  brute: { name: 'Koloss', text: 'Viel Leben, harter Schlag.', hp: 320, attack: 70, countdown: 4, size: 1.3 },
+  spitter: { name: 'Spucker', text: 'Spuckt Säure aus der Distanz.', hp: 110, attack: 45, countdown: 3, size: 1 },
+  shielder: { name: 'Panzer-Zombie', text: 'Sein Schild schluckt Schaden – Fähigkeiten brechen es sofort.',
+    hp: 140, attack: 34, countdown: 3, size: 1.05, shield: 160 },
+  bomber: { name: 'Explodierer', text: 'Wirft beim Angriff Kisten aufs Spielfeld.', hp: 100, attack: 38, countdown: 3, size: 1, crates: 3 },
+  healer: { name: 'Seuchen-Doktor', text: 'Heilt andere Zombies – zuerst ausschalten!', hp: 120, attack: 0, countdown: 2, size: 0.95, heal: 0.2 },
+  boss: { name: 'Mutant', text: 'Boss: riesig und gefährlich.', hp: 1100, attack: 110, countdown: 3, size: 1.7 },
+  titan: { name: 'Titan', text: 'Event-Boss mit gewaltigem Leben.', hp: 50000, attack: 90, countdown: 3, size: 1.9 },
 };
+
+export type StageMode = 'campaign' | 'boss' | 'dungeon';
 
 export interface StageDef {
   id: number;
@@ -16,6 +35,9 @@ export interface StageDef {
   waves: ZombieKind[][];
   scale: number; // Multiplikator für Zombie-Werte
   reward: Resources;
+  obstacles: { crates: number; ice: number };
+  mode?: StageMode;
+  moveLimit?: number; // Boss-Event: Kampf endet nach so vielen Zügen
 }
 
 export type ResourceId = 'food' | 'wood' | 'steel';
@@ -27,6 +49,9 @@ const STAGE_NAMES = ['Tankstelle', 'Supermarkt', 'Krankenhaus', 'Polizeiwache', 
 export const STAGES: StageDef[] = Array.from({ length: 24 }, (_, i) => {
   const n = i + 1;
   const pool: ZombieKind[] = n < 3 ? ['walker'] : n < 6 ? ['walker', 'runner'] : ['walker', 'runner', 'spitter', 'brute'];
+  if (n >= 5) pool.push('shielder');
+  if (n >= 9) pool.push('bomber');
+  if (n >= 13) pool.push('healer');
   const waveCount = 2 + Math.min(2, Math.floor(n / 5));
   const waves: ZombieKind[][] = Array.from({ length: waveCount }, (_, w) => {
     const size = Math.min(4, 2 + Math.floor((n + w) / 6));
@@ -38,6 +63,7 @@ export const STAGES: StageDef[] = Array.from({ length: 24 }, (_, i) => {
     name: `${STAGE_NAMES[Math.floor(i / 3) % STAGE_NAMES.length]} ${(i % 3) + 1}`,
     waves,
     scale: 1.17 ** i,
+    obstacles: { crates: n >= 5 ? Math.min(8, 2 + Math.floor(n / 4)) : 0, ice: n >= 9 ? Math.min(6, Math.floor((n - 6) / 3)) : 0 },
     reward: {
       food: Math.round(150 * 1.2 ** i),
       wood: Math.round(110 * 1.2 ** i),

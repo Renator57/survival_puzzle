@@ -1,9 +1,9 @@
 // Kampfszene: zeichnet Spielfeld, Helden und Zombies und animiert die Ereignisse aus dem Kern.
 // Die Szene entscheidet nichts selbst – alle Regeln stecken in src/core/battle.ts.
 import Phaser from 'phaser';
-import { COLS, ROWS, isAdjacent, type Pos, type Special, type Tile } from '../core/board';
-import { canUseSkill, swap, useSkill, type Battle, type BattleEvent, type Enemy } from '../core/battle';
-import { STAGES, ZOMBIES, type ZombieKind } from '../core/content';
+import { COLS, CRATE, ROWS, isAdjacent, type Pos, type Special, type Tile } from '../core/board';
+import { canUseSkill, movesLeft, swap, useSkill, type Battle, type BattleEvent, type Enemy } from '../core/battle';
+import { ZOMBIES, type ZombieKind } from '../core/content';
 import { heroDef, type HeroId } from '../core/heroes';
 import { audio } from '../audio';
 import { RARITY_COLORS } from './colors';
@@ -18,12 +18,17 @@ const FONT = '"Lilita One", system-ui, sans-serif';
 
 export const TILE_COLORS = ['#ef4b4b', '#3d8bfd', '#3fcf6b', '#ffc531', '#a66bff'];
 const SPECIALS: Special[] = ['none', 'row', 'col', 'bomb'];
-const ZOMBIE_LOOK: Record<ZombieKind, { key: string; tint?: number }> = {
+// Aussehen der Zombies: Bild, Färbung und ein Symbol für Spezial-Zombies
+const ZOMBIE_LOOK: Record<ZombieKind, { key: string; tint?: number; badge?: string }> = {
   walker: { key: 'zombie-walker' },
   runner: { key: 'zombie-runner' },
   brute: { key: 'zombie-brute', tint: 0xd8c0b0 },
   spitter: { key: 'zombie-walker', tint: 0xb0ff90 },
+  shielder: { key: 'zombie-brute', tint: 0xa8c4ff, badge: 'ui-shield' },
+  bomber: { key: 'zombie-walker', tint: 0xffb878, badge: 'ui-bomb' },
+  healer: { key: 'zombie-runner', tint: 0xd8a8ff, badge: 'ui-virus' },
   boss: { key: 'zombie-boss' },
+  titan: { key: 'zombie-boss', tint: 0xff9a8a },
 };
 
 const hex = (css: string) => parseInt(css.slice(1), 16);
@@ -36,7 +41,8 @@ function shade(css: string, amount: number): string {
 
 const cellX = (col: number) => BOARD_X + col * TILE + TILE / 2;
 const cellY = (row: number) => BOARD_Y + row * TILE + TILE / 2;
-const tileKey = (t: Pick<Tile, 'color' | 'special'>) => `gem-${t.color}-${t.special}`;
+const tileKey = (t: Pick<Tile, 'color' | 'special' | 'frozen'>) =>
+  t.color === CRATE ? 'crate' : `gem-${t.color}-${t.special}${t.frozen ? '-ice' : ''}`;
 
 export type BattleOutcome = 'won' | 'lost' | 'fled';
 
@@ -52,9 +58,12 @@ interface EnemyView {
   container: Phaser.GameObjects.Container;
   body: Phaser.GameObjects.Image;
   hpFill: Phaser.GameObjects.Rectangle;
+  shieldFill: Phaser.GameObjects.Rectangle | null;
   countText: Phaser.GameObjects.Text;
   hp: number;
   maxHp: number;
+  shield: number;
+  maxShield: number;
   barWidth: number;
 }
 
@@ -110,7 +119,7 @@ export class BattleScene extends Phaser.Scene {
     for (const h of this.battle.heroes) this.load.image(`hero-${h.id}`, `img/hero-${h.id}.webp`);
     for (const kind of ['walker', 'runner', 'brute', 'boss']) this.load.image(`zombie-${kind}`, `img/zombie-${kind}.webp`);
     for (let c = 0; c < TILE_COLORS.length; c++) this.load.image(`tile-${c}`, `img/tile-${c}.webp`);
-    this.load.image('ui-boom', 'img/ui-boom.webp');
+    for (const k of ['ui-boom', 'ui-shield', 'ui-bomb', 'ui-virus']) this.load.image(k, `img/${k}.webp`);
   }
 
   create() {
@@ -146,14 +155,22 @@ export class BattleScene extends Phaser.Scene {
   private makeTextures() {
     for (let c = 0; c < TILE_COLORS.length; c++) {
       for (const special of SPECIALS) {
-        const key = tileKey({ color: c, special });
-        if (this.textures.exists(key)) continue;
-        const tex = this.textures.createCanvas(key, TILE, TILE)!;
-        const icon = this.textures.get(`tile-${c}`).getSourceImage() as HTMLImageElement;
-        const boom = this.textures.get('ui-boom').getSourceImage() as HTMLImageElement;
-        drawTile(tex.getContext(), c, special, icon, boom);
-        tex.refresh();
+        for (const frozen of [false, true]) {
+          const key = tileKey({ color: c, special, frozen });
+          if (this.textures.exists(key)) continue;
+          const tex = this.textures.createCanvas(key, TILE, TILE)!;
+          const icon = this.textures.get(`tile-${c}`).getSourceImage() as HTMLImageElement;
+          const boom = this.textures.get('ui-boom').getSourceImage() as HTMLImageElement;
+          drawTile(tex.getContext(), c, special, icon, boom);
+          if (frozen) drawIce(tex.getContext());
+          tex.refresh();
+        }
       }
+    }
+    if (!this.textures.exists('crate')) {
+      const tex = this.textures.createCanvas('crate', TILE, TILE)!;
+      drawCrate(tex.getContext());
+      tex.refresh();
     }
     if (!this.textures.exists('backdrop')) {
       const tex = this.textures.createCanvas('backdrop', WIDTH, HEIGHT)!;
@@ -163,8 +180,8 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private createHud() {
-    const stage = STAGES[this.battle.stageId - 1];
-    this.add.text(WIDTH / 2, 34, `${this.battle.stageId}. ${stage.name}`, {
+    const stage = this.battle.stage;
+    this.add.text(WIDTH / 2, 34, stage.mode && stage.mode !== 'campaign' ? stage.name : `${stage.id}. ${stage.name}`, {
       fontFamily: FONT, fontSize: '30px', color: '#ffffff', stroke: '#000000', strokeThickness: 6,
     }).setOrigin(0.5);
     this.waveText = this.add.text(WIDTH / 2, 72, '', {
@@ -218,13 +235,25 @@ export class BattleScene extends Phaser.Scene {
         fontFamily: FONT, fontSize: '22px', color: '#ffffff',
       }).setOrigin(0.5);
       container.add([shadow, body, hpBg, hpFill, badge, countText]);
+      let shieldFill: Phaser.GameObjects.Rectangle | null = null;
+      if (enemy.maxShield > 0) {
+        container.add(this.add.rectangle(0, 38, barWidth + 4, 12, 0x000000, 0.75));
+        shieldFill = this.add.rectangle(-barWidth / 2, 38, barWidth * (enemy.shield / enemy.maxShield), 8, 0x6ab8ff).setOrigin(0, 0.5);
+        container.add(shieldFill);
+      }
+      if (look.badge) {
+        const icon = this.add.image(-48 * size, -60 * size, look.badge).setDisplaySize(48, 48);
+        container.add(icon);
+        this.tweens.add({ targets: icon, y: icon.y - 6, yoyo: true, repeat: -1, duration: 700 });
+      }
 
       // Leichtes Wanken, damit die Zombies lebendig wirken
       this.tweens.add({ targets: body, angle: { from: -3, to: 3 }, yoyo: true, repeat: -1, duration: 900 + i * 130, ease: 'Sine.easeInOut' });
       if (walkIn) this.tweens.add({ targets: container, x, duration: 700, delay: i * 120, ease: 'Cubic.easeOut' });
 
       this.enemyViews.set(enemy.uid, {
-        uid: enemy.uid, container, body, hpFill, countText, hp: enemy.hp, maxHp: enemy.maxHp, barWidth,
+        uid: enemy.uid, container, body, hpFill, shieldFill, countText, hp: enemy.hp, maxHp: enemy.maxHp,
+        shield: enemy.shield, maxShield: enemy.maxShield, barWidth,
       });
     });
   }
@@ -394,6 +423,26 @@ export class BattleScene extends Phaser.Scene {
         return this.animateCascade(event.step, event.combo);
       case 'enemyAttack':
         return this.animateEnemyAttack(event.enemyUid, event.damage);
+      case 'zombieHeal': {
+        const healer = this.enemyViews.get(event.enemyUid);
+        if (healer) this.tweens.add({ targets: healer.container, scale: 1.15, yoyo: true, duration: 180 });
+        audio.heal();
+        for (const t of event.targets) {
+          const v = this.enemyViews.get(t.uid);
+          if (!v) continue;
+          v.hp = Math.min(v.maxHp, v.hp + t.amount);
+          this.tweens.add({ targets: v.hpFill, width: v.barWidth * (v.hp / v.maxHp), duration: 300 });
+          this.floatText(v.container.x, GROUND_Y - 150, `+${t.amount}`, '#7dff9c');
+        }
+        return this.wait(400);
+      }
+      case 'crates': {
+        const bomber = this.enemyViews.get(event.enemyUid);
+        if (bomber) this.floatText(bomber.container.x, GROUND_Y - 190, 'Kisten!', '#ffb878', 34);
+        this.cameras.main.shake(180, 0.008);
+        await this.layout(event.grid);
+        return;
+      }
       case 'heal':
         audio.heal();
         this.floatText(WIDTH / 2, 430, `+${event.amount}`, '#7dff9c');
@@ -502,7 +551,14 @@ export class BattleScene extends Phaser.Scene {
     audio.hit();
     enemy.hp = Math.max(0, enemy.hp - event.damage);
     enemy.hpFill.width = enemy.barWidth * (enemy.hp / enemy.maxHp);
-    this.floatText(enemy.container.x + (Math.random() - 0.5) * 40, GROUND_Y - 150, `-${event.damage}`, TILE_COLORS[hero.color]);
+    if (enemy.shieldFill) {
+      enemy.shield = event.shieldBroken ? 0 : Math.max(0, enemy.shield - event.absorbed);
+      enemy.shieldFill.width = enemy.barWidth * (enemy.shield / enemy.maxShield);
+    }
+    const x = enemy.container.x + (Math.random() - 0.5) * 40;
+    if (event.shieldBroken) this.floatText(enemy.container.x, GROUND_Y - 200, 'Schild zerbrochen!', '#6ab8ff', 30);
+    else if (event.absorbed && !event.damage) this.floatText(x, GROUND_Y - 150, `🛡 ${event.absorbed}`, '#6ab8ff');
+    if (event.damage) this.floatText(x, GROUND_Y - 150, `-${event.damage}`, TILE_COLORS[hero.color]);
     this.tweens.add({ targets: enemy.body, x: { from: -10, to: 0 }, duration: 160, ease: 'Elastic.easeOut' });
     enemy.body.setTintMode(Phaser.TintModes.FILL).setTint(0xffffff);
     this.time.delayedCall(70, () => {
@@ -546,7 +602,9 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private updateWaveText(index = this.battle.waveIndex) {
-    this.waveText.setText(`Welle ${index + 1} / ${STAGES[this.battle.stageId - 1].waves.length}`);
+    if (this.battle.stage.moveLimit) {
+      this.waveText.setText(`Züge übrig: ${movesLeft(this.battle)} · Schaden: ${this.battle.damageDealt.toLocaleString('de-DE')}`);
+    } else this.waveText.setText(`Welle ${index + 1} / ${this.battle.stage.waves.length}`);
   }
 
   private updateTargetMarker() {
@@ -721,4 +779,55 @@ function drawBackdrop(ctx: CanvasRenderingContext2D) {
 
   ctx.fillStyle = '#0d0f14';
   ctx.fillRect(0, GROUND_Y + 60, WIDTH, HEIGHT - GROUND_Y - 60);
+}
+
+// Eis: bläuliche Schicht mit Glanzstreifen über dem Stein
+function drawIce(ctx: CanvasRenderingContext2D) {
+  const s = TILE;
+  ctx.save();
+  ctx.fillStyle = 'rgba(180, 225, 255, 0.55)';
+  ctx.beginPath();
+  ctx.roundRect(5, 5, s - 10, s - 12, 22);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.lineWidth = 4;
+  for (const [x1, y1, x2, y2] of [[22, 30, 40, 14], [56, 80, 82, 54], [18, 70, 30, 58]]) {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Holzkiste
+function drawCrate(ctx: CanvasRenderingContext2D) {
+  const s = TILE;
+  const p = 6;
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.beginPath();
+  ctx.roundRect(p, p + 5, s - 2 * p, s - 2 * p, 10);
+  ctx.fill();
+  const g = ctx.createLinearGradient(0, p, 0, s - p);
+  g.addColorStop(0, '#c08a4e');
+  g.addColorStop(1, '#7a4f25');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.roundRect(p, p, s - 2 * p, s - 2 * p - 2, 10);
+  ctx.fill();
+  ctx.strokeStyle = '#4a2c10';
+  ctx.lineWidth = 6;
+  ctx.strokeRect(p + 6, p + 6, s - 2 * p - 12, s - 2 * p - 14);
+  ctx.beginPath();
+  ctx.moveTo(p + 8, p + 8);
+  ctx.lineTo(s - p - 8, s - p - 10);
+  ctx.moveTo(s - p - 8, p + 8);
+  ctx.lineTo(p + 8, s - p - 10);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(p + 2, p + 2, s - 2 * p - 4, s - 2 * p - 6);
 }

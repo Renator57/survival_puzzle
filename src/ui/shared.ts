@@ -105,6 +105,7 @@ export const app = {
   save: () => {},
   render: () => {},
   reset: () => {},
+  afterBattle: () => {},
 };
 
 export const actions: Record<string, (arg: string) => void> = {};

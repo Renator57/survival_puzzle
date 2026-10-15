@@ -1070,3 +1070,24 @@ button { font: inherit; color: inherit; }
   }
   #app { box-shadow: 0 0 0 1px #ffffff14, 0 0 80px #000; }
 }
+
+/* ---------- Sterne & Spezial-Zombies ---------- */
+.node-stars { position: absolute; left: 50%; bottom: -34%; transform: translateX(-50%); display: flex; gap: 0; font-size: 15px; line-height: 1; text-shadow: 0 2px 2px #000; }
+.node-stars i { font-style: normal; color: #00000088; }
+.node-stars i.on { color: #ffd34d; }
+.star-pill { position: relative; cursor: pointer; font-family: var(--display); }
+.star-pill.ready { animation: glowpulse 1.6s ease-in-out infinite; }
+.star-pill .badge { top: -6px; right: -6px; }
+.stars.big { font-size: 22px; }
+.foe { position: relative; }
+.foe-badge { position: absolute; right: -6px; bottom: -6px; width: 20px !important; height: 20px !important; filter: drop-shadow(0 1px 2px #000); }
+.foe.shielder .ic:first-child { filter: hue-rotate(180deg) saturate(0.8); }
+.foe.bomber .ic:first-child { filter: sepia(0.6) saturate(2) hue-rotate(-20deg); }
+.foe.healer .ic:first-child { filter: hue-rotate(220deg); }
+.tip span { flex: 1; }
+.result-stars { position: relative; display: flex; justify-content: center; gap: 6px; margin: 4px 0 8px; font-size: 44px; line-height: 1; }
+.result-stars span { color: #ffffff22; transform: scale(0); animation: star-pop 0.4s calc(0.3s + var(--i) * 0.25s) cubic-bezier(0.2, 1.6, 0.4, 1) forwards; }
+.result-stars span.on { color: #ffd34d; text-shadow: 0 0 16px #ffb300aa, 0 3px 0 #a86a00; }
+.result-stars span:nth-child(2) { font-size: 56px; margin-top: -10px; }
+.result-actions .btn:not(.big) { width: 100%; }
+@keyframes star-pop { to { transform: scale(1); } }

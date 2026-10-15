@@ -6,11 +6,18 @@ export const ROWS = 6;
 export const COLORS = 5;
 
 export type Special = 'none' | 'row' | 'col' | 'bomb';
+export const CRATE = -1; // Kiste: blockiert ein Feld, zerbricht durch Treffer daneben
 
 export interface Tile {
   id: number;
-  color: number;
+  color: number; // CRATE (-1) = Kiste
   special: Special;
+  frozen?: boolean; // Eis: lässt sich nicht tauschen, taut durch Treffer daneben auf
+}
+
+export interface Obstacles {
+  crates: number;
+  ice: number;
 }
 
 export interface Pos {
@@ -48,8 +55,8 @@ export function cloneGrid(grid: Tile[][]): Tile[][] {
   return grid.map((row) => row.map((t) => ({ ...t })));
 }
 
-// Startfeld ohne fertige Dreierreihen.
-export function createBoard(rng: Rng): Board {
+// Startfeld ohne fertige Dreierreihen, optional mit Kisten und Eis.
+export function createBoard(rng: Rng, obstacles: Obstacles = { crates: 0, ice: 0 }): Board {
   const board: Board = { grid: [], nextId: 1 };
   for (let r = 0; r < ROWS; r++) {
     const row: Tile[] = [];
@@ -65,8 +72,33 @@ export function createBoard(rng: Rng): Board {
     }
     board.grid.push(row);
   }
+  // Kisten eher in den unteren Reihen, Eis überall
+  const cells = range(0, ROWS * COLS).map((i) => ({ row: Math.floor(i / COLS), col: i % COLS }));
+  for (let i = 0; i < obstacles.crates; i++) {
+    const free = cells.filter((p) => p.row >= 2 && board.grid[p.row][p.col].color !== CRATE);
+    const p = free[nextInt(rng, free.length)];
+    board.grid[p.row][p.col].color = CRATE;
+  }
+  for (let i = 0; i < obstacles.ice; i++) {
+    const free = cells.filter((p) => board.grid[p.row][p.col].color !== CRATE && !board.grid[p.row][p.col].frozen);
+    const p = free[nextInt(rng, free.length)];
+    board.grid[p.row][p.col].frozen = true;
+  }
   if (!hasValidMove(board)) shuffle(board, rng);
   return board;
+}
+
+// Explodierer-Zombies werfen Kisten aufs Feld.
+export function addCrates(board: Board, rng: Rng, count: number): Tile[][] {
+  for (let i = 0; i < count; i++) {
+    const free = board.grid.flat().filter((t) => t.color !== CRATE && t.special === 'none');
+    if (free.length < 12) break;
+    const tile = free[nextInt(rng, free.length)];
+    tile.color = CRATE;
+    tile.frozen = false;
+  }
+  if (!hasValidMove(board)) shuffle(board, rng);
+  return cloneGrid(board.grid);
 }
 
 interface Run {
@@ -80,7 +112,7 @@ function findRuns(grid: Tile[][]): Run[] {
     let start = 0;
     for (let c = 1; c <= COLS; c++) {
       if (c < COLS && grid[r][c].color === grid[r][start].color) continue;
-      if (c - start >= 3) runs.push({ dir: 'h', cells: range(start, c).map((col) => ({ row: r, col })) });
+      if (c - start >= 3 && grid[r][start].color !== CRATE) runs.push({ dir: 'h', cells: range(start, c).map((col) => ({ row: r, col })) });
       start = c;
     }
   }
@@ -88,7 +120,7 @@ function findRuns(grid: Tile[][]): Run[] {
     let start = 0;
     for (let r = 1; r <= ROWS; r++) {
       if (r < ROWS && grid[r][c].color === grid[start][c].color) continue;
-      if (r - start >= 3) runs.push({ dir: 'v', cells: range(start, r).map((row) => ({ row, col: c })) });
+      if (r - start >= 3 && grid[start][c].color !== CRATE) runs.push({ dir: 'v', cells: range(start, r).map((row) => ({ row, col: c })) });
       start = r;
     }
   }
@@ -111,6 +143,7 @@ export function isValidSwap(board: Board, a: Pos, b: Pos): boolean {
   if (!inside(a) || !inside(b) || !isAdjacent(a, b)) return false;
   const ta = board.grid[a.row][a.col];
   const tb = board.grid[b.row][b.col];
+  if (ta.color === CRATE || tb.color === CRATE || ta.frozen || tb.frozen) return false;
   if (ta.special !== 'none' || tb.special !== 'none') return true;
   swapCells(board.grid, a, b);
   const ok = hasMatch(board.grid);
@@ -166,6 +199,17 @@ function clearAndCollapse(board: Board, rng: Rng, toClear: Map<number, Pos>, cre
         toClear.set(key(q), q);
         queue.push(q);
       }
+    }
+  }
+
+  // Kisten neben abgeräumten Steinen zerbrechen, Eis daneben taut auf
+  for (const p of [...toClear.values()]) {
+    if (board.grid[p.row][p.col].color === CRATE) continue;
+    for (const q of [{ row: p.row - 1, col: p.col }, { row: p.row + 1, col: p.col }, { row: p.row, col: p.col - 1 }, { row: p.row, col: p.col + 1 }]) {
+      if (!inside(q) || toClear.has(key(q))) continue;
+      const t = board.grid[q.row][q.col];
+      if (t.color === CRATE) toClear.set(key(q), q);
+      else if (t.frozen) t.frozen = false;
     }
   }
 

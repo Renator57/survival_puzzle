@@ -40,6 +40,8 @@ export interface Player {
   diamonds: number; // seltene Premium-Währung
   pity: number; // Beschwörungen seit dem letzten Legendären
   stagesCleared: number;
+  stageStars: Record<string, number>; // beste Sterne pro Level
+  starChests: number[]; // abgeholte Sterne-Truhen (Index)
   troops: Record<UnitId, number>; // Einheiten zu Hause (unterwegs zählen die Märsche)
   queues: Record<TrainingBuilding, Training | null>;
   marches: March[];
@@ -67,6 +69,8 @@ export function createPlayer(now: number): Player {
     diamonds: 300,
     pity: 0,
     stagesCleared: 0,
+    stageStars: {},
+    starChests: [],
     troops: { brawler: 30, shooter: 30, rider: 20, wagon: 0 },
     queues: { barracks: null, workshop: null },
     marches: [],
@@ -254,14 +258,34 @@ export function stageReward(player: Player, stageId: number): Resources {
 // Diamanten gibt es nur beim ersten Sieg – sie sollen selten sein.
 export const stageDiamonds = (stageId: number) => (STAGES[stageId - 1].waves.flat().includes('boss') ? 50 : 15);
 
-export function completeStage(player: Player, stageId: number): Resources & { diamonds: number } {
+export function completeStage(player: Player, stageId: number, stars = 1): Resources & { diamonds: number } {
   const reward = stageReward(player, stageId);
   const diamonds = stageId > player.stagesCleared ? stageDiamonds(stageId) : 0;
   for (const r of RESOURCE_IDS) player.resources[r] += reward[r];
   player.diamonds += diamonds;
   player.stats.battlesWon += 1;
+  player.stageStars[stageId] = Math.max(player.stageStars[stageId] ?? 0, stars);
   player.stagesCleared = Math.max(player.stagesCleared, stageId);
   return { ...reward, diamonds };
+}
+
+// ---------- Sterne-Truhen ----------
+export const STAR_CHESTS: { stars: number; reward: Resources & { diamonds: number } }[] = [
+  { stars: 9, reward: { food: 2000, wood: 2000, steel: 300, diamonds: 30 } },
+  { stars: 24, reward: { food: 5000, wood: 5000, steel: 1000, diamonds: 60 } },
+  { stars: 45, reward: { food: 12000, wood: 12000, steel: 3000, diamonds: 100 } },
+  { stars: 72, reward: { food: 30000, wood: 30000, steel: 8000, diamonds: 250 } },
+];
+
+export const totalStars = (player: Player) => Object.values(player.stageStars).reduce((a, b) => a + b, 0);
+
+export function claimStarChest(player: Player, index: number): boolean {
+  const chest = STAR_CHESTS[index];
+  if (!chest || player.starChests.includes(index) || totalStars(player) < chest.stars) return false;
+  player.starChests.push(index);
+  for (const r of RESOURCE_IDS) player.resources[r] += chest.reward[r];
+  player.diamonds += chest.reward.diamonds;
+  return true;
 }
 
 // Kampfkraft des Teams (Angriff zählt 10-fach, dazu Lebenspunkte und Mauer-Bonus).
