@@ -13,6 +13,7 @@ import { battleTeam, newHeroState, STARTER_TEAM, upgradeHeroLevel, type HeroId, 
 import { armySize, unitDef, UNITS, type Army, type UnitId } from './army';
 import { processMarches, type March, type Report, type TileState } from './world';
 import { emptyQuestState, emptyStats, rollDay, type QuestState, type Stats } from './quests';
+import { emptyEventState, rollEvents, type EventState } from './events';
 
 export const SAVE_VERSION = 2;
 export const RESOURCE_IDS: ResourceId[] = ['food', 'wood', 'steel'];
@@ -49,6 +50,7 @@ export interface Player {
   world: { seed: number; tiles: Record<string, TileState> };
   stats: Stats; // Zähler für Aufgaben
   quests: QuestState;
+  events: EventState;
   nextId: number;
   lastUpdate: number;
 }
@@ -78,6 +80,7 @@ export function createPlayer(now: number): Player {
     world: { seed: (now % 2147483646) + 1, tiles: {} },
     stats: emptyStats(),
     quests: emptyQuestState(),
+    events: emptyEventState(),
     nextId: 1,
     lastUpdate: now,
   };
@@ -139,6 +142,7 @@ export function update(player: Player, now: number) {
   }
   processMarches(player, now);
   rollDay(player, now);
+  rollEvents(player, now);
   const seconds = Math.max(0, (now - player.lastUpdate) / 1000);
   const cap = capacity(player);
   for (const r of RESOURCE_IDS) {
@@ -324,6 +328,7 @@ export function deserialize(json: string, now: number): Player {
     world: { ...fresh.world, ...data.world },
     stats: { ...fresh.stats, ...data.stats },
     quests: { ...fresh.quests, ...data.quests },
+    events: { ...fresh.events, ...data.events },
     version: SAVE_VERSION,
   };
 }

@@ -5,7 +5,7 @@ import type { BuildingId } from './core/content';
 import * as P from './core/player';
 import { BLOCK_TEXT, buildingSheet, renderBase } from './ui/base';
 import { renderHeroes } from './ui/heroes';
-import { renderMap, scrollMapToCurrent, stageSheet } from './ui/map';
+import { isCampaignView, renderMap, scrollMapToCurrent, stageSheet } from './ui/map';
 import { actions, app, closeSheet, fmt, openSheet, patch, pic, refreshSheet, RES_IMG, RES_NAMES, toast, updateTimers } from './ui/shared';
 import { inBattle } from './ui/battles';
 import { renderTroops } from './ui/troops';
@@ -88,7 +88,7 @@ function switchTab(next: Tab) {
   closeSheet(true);
   render();
   const screen = document.getElementById('screen')!;
-  if (tab === 'map') scrollMapToCurrent(screen);
+  if (tab === 'map' && isCampaignView()) scrollMapToCurrent(screen);
   else screen.scrollTop = 0;
 }
 

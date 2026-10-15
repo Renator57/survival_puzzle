@@ -1,7 +1,12 @@
 // Einsatzkarte: Landschaft als SVG, Level als Orte entlang einer Straße (unten = Start).
 import { STAGES, ZOMBIES, type ZombieKind } from '../core/content';
 import { claimStarChest, isStageUnlocked, recommendedPower, STAR_CHESTS, stageReward, teamPower, totalStars, type Player } from '../core/player';
+import { bossTriesLeft } from '../core/events';
+import { renderEvents } from './events';
 import { actions, app, costChips, fmt, img, openSheet, pic, refreshSheet, toast } from './shared';
+
+let mapView: 'campaign' | 'events' = 'campaign';
+export const isCampaignView = () => mapView === 'campaign';
 
 const W = 400;
 const GAP = 150;
@@ -133,6 +138,13 @@ function buildLandscape() {
 }
 
 export function renderMap(player: Player): string {
+  const segments = `<div class="segments two">
+    <button class="seg ${mapView === 'campaign' ? 'active' : ''}" data-action="map-view" data-arg="campaign">Kampagne</button>
+    <button class="seg ${mapView === 'events' ? 'active' : ''}" data-action="map-view" data-arg="events">Events${bossTriesLeft(player) > 0 ? '<span class="dot"></span>' : ''}</button>
+  </div>`;
+  if (mapView === 'events') {
+    return `<div class="screen-head"><div><h1>Events</h1><p>Täglich neue Herausforderungen.</p></div>${segments}</div>${renderEvents(player)}`;
+  }
   const firstLocked = player.stagesCleared + 1; // Index des ersten gesperrten Levels
   const fogY = firstLocked < STAGES.length ? nodeY(firstLocked) + 85 : -1;
   const fog = fogY > 0
@@ -170,6 +182,7 @@ export function renderMap(player: Player): string {
     <div class="screen-head">
       <div><h1>Einsatzkarte</h1><p>Erobere die Stadt Ort für Ort zurück.</p></div>
       <button class="pill star-pill ${chestReady(player) ? 'ready' : ''}" data-action="star-chests">${pic('ui-star')} ${totalStars(player)}/${STAGES.length * 3}${chestReady(player) ? `<span class="badge">!</span>` : ''}</button>
+      ${segments}
     </div>
     <div class="map" style="aspect-ratio:${W}/${H}">
       <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${buildLandscape()}${fog}</svg>
@@ -220,6 +233,13 @@ function chestSheet(): string {
 }
 
 Object.assign(actions, {
+  'map-view': (arg: string) => {
+    mapView = arg as typeof mapView;
+    app.render();
+    const screen = document.getElementById('screen')!;
+    if (mapView === 'campaign') scrollMapToCurrent(screen);
+    else screen.scrollTop = 0;
+  },
   'star-chests': () => openSheet(chestSheet),
   'claim-chest': (arg: string) => {
     if (!claimStarChest(app.player, Number(arg))) return;
