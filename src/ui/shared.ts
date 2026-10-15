@@ -104,6 +104,7 @@ export const app = {
   player: null as unknown as Player,
   save: () => {},
   render: () => {},
+  reset: () => {},
 };
 
 export const actions: Record<string, (arg: string) => void> = {};

@@ -1,4 +1,5 @@
 // Helden: Team, Sammlung, Beschwörung, Shop, Profil mit Talentbaum.
+import { audio } from '../audio';
 import { unitDef, type UnitId } from '../core/army';
 import * as H from '../core/heroes';
 import * as P from '../core/player';
@@ -327,6 +328,7 @@ function teamPickSheet(): string {
 // ---------- Beschwörungs-Animation ----------
 function playSummon(results: H.SummonResult[]) {
   const best = results.reduce((m, r) => Math.max(m, H.RARITY[H.heroDef(r.id).rarity].order), 0);
+  audio.summon(best);
   const fx = document.createElement('div');
   fx.className = `summon-fx best-${best}`;
   fx.innerHTML = `

@@ -295,6 +295,8 @@ function arrive(player: Player, m: March, world: World) {
   }
   m.cargo = loot;
   const diamonds = bot ? 3 : Math.floor(tile.level / 3);
+  if (bot) player.stats.plunders += 1;
+  else player.stats.hordes += 1;
   player.diamonds += diamonds;
   report(player, {
     at, win: true, title: `Sieg gegen ${name}`, loot, losses: result.attackerLosses, enemyLosses: result.defenderLosses,
@@ -316,6 +318,7 @@ export function processMarches(player: Player, now: number) {
       for (const r of ['food', 'wood', 'steel'] as const) player.resources[r] += m.cargo[r];
       player.marches.splice(player.marches.indexOf(m), 1);
       if (m.kind === 'gather') {
+        player.stats.gathered += m.cargo.food + m.cargo.wood + m.cargo.steel;
         const tile = world.byKey.get(m.target)!;
         report(player, {
           at: m.returnAt!, win: null, loot: m.cargo, title: 'Sammeltrupp zurück',

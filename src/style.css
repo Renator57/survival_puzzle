@@ -46,7 +46,7 @@ button { font: inherit; color: inherit; }
   position: relative;
   z-index: 5;
   display: grid;
-  grid-template-columns: 0.9fr 1fr 1fr 1fr;
+  grid-template-columns: 0.9fr 1fr 1fr 1fr auto;
   gap: 6px;
   padding: calc(10px + var(--safe-top)) 10px 10px;
   background: linear-gradient(180deg, #0b0d12, #0b0d12e6);
@@ -317,45 +317,6 @@ button { font: inherit; color: inherit; }
   transform: translateX(-50%);
 }
 
-/* ---------- Helden ---------- */
-.hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 12px; }
-.hero-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 14px 10px 12px;
-  border-radius: 20px;
-  border: 1px solid #ffffff1f;
-  background: var(--panel);
-  overflow: hidden;
-  cursor: pointer;
-  text-align: center;
-  box-shadow: 0 8px 20px #0008;
-  transition: transform 0.12s;
-}
-.hero-card:active { transform: scale(0.96); }
-.hero-card:last-child:nth-child(odd) { grid-column: span 2; justify-self: center; width: calc(50% - 6px); }
-.hero-bg { position: absolute; inset: 0; background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--hero) 65%, transparent), transparent 70%), linear-gradient(180deg, color-mix(in srgb, var(--hero) 25%, #161a24), #161a24); }
-.hero-img { position: relative; width: 62%; max-width: 130px; aspect-ratio: 1; object-fit: contain; filter: drop-shadow(0 8px 6px #000a); }
-.hero-lvl {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-family: var(--display);
-  font-size: 13px;
-  background: #000a;
-}
-.hero-card .bld-up { left: 10px; top: 10px; }
-.hero-info { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 4px; }
-.hero-info b { font-family: var(--display); font-weight: 400; font-size: 22px; letter-spacing: 0.02em; text-shadow: 0 2px 0 #0008; }
-.hero-info small { font-size: 12px; color: #ffffffb0; font-weight: 700; }
-.hero-stats { display: flex; gap: 10px; margin-top: 6px; font-weight: 800; font-size: 14px; }
-.hero-stats span { display: flex; align-items: center; gap: 3px; }
-.hero-tile { position: absolute; left: 8px; bottom: 8px; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--hero); box-shadow: 0 2px 0 #0006; }
-.hero-tile .ic { width: 22px; height: 22px; }
 
 /* ---------- Detailfenster ---------- */
 .sheet-backdrop {
@@ -1048,3 +1009,64 @@ button { font: inherit; color: inherit; }
 .team-slot b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .reveal.grid .rr { font-size: 7.5px; letter-spacing: -0.02em; }
 .reveal.grid .shard-tag { font-size: 8px; }
+
+/* ---------- Einstellungen-Knopf ---------- */
+.res-gear { width: 34px; height: 34px; align-self: center; display: grid; place-items: center; border-radius: 50%; border: 1px solid #ffffff1f; background: #1a1f2b; font-size: 18px; color: var(--muted); cursor: pointer; }
+
+/* ---------- Ziel-Banner ---------- */
+.goal { display: flex; align-items: center; gap: 10px; margin: 0 12px 10px; padding: 10px 12px; border-radius: 18px; border: 1px solid #ffc04855; background: linear-gradient(135deg, #3a2a1a, #161a24 70%); box-shadow: 0 6px 16px #0007; }
+.goal.ready { border-color: var(--ok); background: linear-gradient(135deg, #1d4a2c, #161a24 70%); animation: glowpulse 1.6s ease-in-out infinite; }
+.goal-img { width: 42px; height: 42px; flex-shrink: 0; }
+.goal.ready .goal-img { animation: bounce 0.9s ease-in-out infinite; }
+.goal .row-main b { font-size: 14.5px; }
+.goal .bar { margin-top: 4px; }
+.goal .bar i { width: auto; }
+.goal-actions { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.quest-btn { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0; padding: 4px 6px; border: none; border-radius: 12px; background: #0006; font-family: var(--display); font-size: 11px; color: var(--muted); cursor: pointer; }
+.quest-btn .ic { width: 26px; height: 26px; }
+.quest-btn .badge { top: -6px; right: -6px; }
+@keyframes glowpulse { 50% { box-shadow: 0 0 22px #4ade8066; } }
+
+/* ---------- Aufgaben ---------- */
+.login-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.login-day { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px; border-radius: 12px; background: #0005; border: 1px solid var(--line); font-size: 11px; font-weight: 800; color: var(--muted); }
+.login-day .chip { font-size: 12px; padding: 2px 6px 2px 3px; }
+.login-day .chip .ic { width: 16px; height: 16px; }
+.login-day.big { grid-column: span 2; border-color: #7dd3fc66; background: radial-gradient(circle, #7dd3fc22, #0005); }
+.login-day.today { border-color: var(--accent-2); color: var(--accent-2); box-shadow: 0 0 14px #ffc04855; }
+.login-day.got { opacity: 0.45; }
+.login-day.got span:first-child::after { content: ' ✓'; color: var(--ok); }
+.quest .row-main { gap: 3px; }
+.quest .bar { margin-top: 2px; }
+.quest .bar i { width: auto; background: linear-gradient(90deg, #4ade80, #a3f7bf); }
+.quest.ready { border-color: #4ade8077; }
+.quest.claimed { opacity: 0.55; }
+.chest.ready { border-color: var(--accent-2); animation: glowpulse 1.6s ease-in-out infinite; }
+
+/* ---------- Einstellungen ---------- */
+.slider { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: #0005; border: 1px solid var(--line); font-weight: 800; }
+.slider span { width: 90px; }
+.slider input { flex: 1; accent-color: var(--accent); height: 28px; }
+.effect-row b.small { font-family: var(--font); font-size: 12px; font-weight: 800; }
+
+/* ---------- Große Bildschirme: Spiel als Handy-Spalte mit Stimmungs-Hintergrund ---------- */
+@media (min-width: 600px) {
+  body {
+    background:
+      radial-gradient(ellipse at 20% 10%, #4a1a2a55, transparent 50%),
+      radial-gradient(ellipse at 85% 90%, #1a2a4a66, transparent 55%),
+      radial-gradient(circle at 50% 120%, #ff7a2f22, transparent 60%),
+      #07080c;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: url('/img/zombie-walker.webp') 6% 82% / 180px no-repeat, url('/img/zombie-brute.webp') 94% 18% / 150px no-repeat,
+      url('/img/deco-ruin.webp') 12% 18% / 120px no-repeat, url('/img/deco-ruin.webp') 90% 80% / 140px no-repeat;
+    opacity: 0.12;
+    filter: grayscale(0.4);
+    pointer-events: none;
+  }
+  #app { box-shadow: 0 0 0 1px #ffffff14, 0 0 80px #000; }
+}

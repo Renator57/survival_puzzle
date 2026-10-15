@@ -5,6 +5,7 @@ import { COLS, ROWS, isAdjacent, type Pos, type Special, type Tile } from '../co
 import { canUseSkill, swap, useSkill, type Battle, type BattleEvent, type Enemy } from '../core/battle';
 import { STAGES, ZOMBIES, type ZombieKind } from '../core/content';
 import { heroDef, type HeroId } from '../core/heroes';
+import { audio } from '../audio';
 import { RARITY_COLORS } from './colors';
 
 export const WIDTH = 720;
@@ -43,6 +44,7 @@ export interface BattleSceneData {
   battle: Battle;
   onEnd: (outcome: BattleOutcome) => void;
   confirmFlee: () => boolean;
+  tutorial?: boolean; // erster Kampf: kurze Anleitung zeigen
 }
 
 interface EnemyView {
@@ -85,6 +87,7 @@ export class BattleScene extends Phaser.Scene {
   private teamText!: Phaser.GameObjects.Text;
   private teamHpShown = 0;
   private waveText!: Phaser.GameObjects.Text;
+  private tutorial = false;
 
   constructor() {
     super('battle');
@@ -94,6 +97,7 @@ export class BattleScene extends Phaser.Scene {
     this.battle = data.battle;
     this.onEnd = data.onEnd;
     this.confirmFlee = data.confirmFlee;
+    this.tutorial = !!data.tutorial;
     this.tiles.clear();
     this.enemyViews.clear();
     this.heroViews = [];
@@ -118,6 +122,24 @@ export class BattleScene extends Phaser.Scene {
     this.createBoard();
     this.setupInput();
     this.syncState();
+    if (this.tutorial) this.showTutorial();
+  }
+
+  // Kurze Anleitung beim allerersten Kampf, verschwindet beim ersten Tippen
+  private showTutorial() {
+    const box = this.add.container(WIDTH / 2, 250).setDepth(40);
+    const bg = this.add.rectangle(0, 0, 640, 300, 0x0b0d12, 0.92).setStrokeStyle(3, 0xffc048);
+    const title = this.add.text(0, -110, 'So kämpfst du', { fontFamily: FONT, fontSize: '40px', color: '#ffc048' }).setOrigin(0.5);
+    const text = this.add.text(0, 10, [
+      'Ziehe einen Stein auf ein Nachbarfeld, so dass',
+      '3 gleiche in einer Reihe liegen.',
+      'Jede Farbe lässt ihren Helden angreifen.',
+      'Volle Helden antippen = Spezialfähigkeit!',
+    ].join('\n'), { fontFamily: '"Nunito Variable", sans-serif', fontSize: '25px', color: '#ffffff', align: 'center', lineSpacing: 8 }).setOrigin(0.5);
+    const hint = this.add.text(0, 118, 'Tippen zum Starten', { fontFamily: FONT, fontSize: '22px', color: '#9aa1b5' }).setOrigin(0.5);
+    box.add([bg, title, text, hint]);
+    this.tweens.add({ targets: hint, alpha: 0.3, yoyo: true, repeat: -1, duration: 600 });
+    this.input.once('pointerdown', () => this.tweens.add({ targets: box, alpha: 0, duration: 250, onComplete: () => box.destroy() }));
   }
 
   // ---------- Grafiken (per Canvas gezeichnet, keine Bilddateien nötig) ----------
@@ -323,11 +345,13 @@ export class BattleScene extends Phaser.Scene {
     this.busy = true;
 
     const events = swap(this.battle, a, b);
+    audio.swap();
     const moveA = this.tween({ targets: imgA, x: cellX(b.col), y: cellY(b.row), duration: 150 });
     const moveB = this.tween({ targets: imgB, x: cellX(a.col), y: cellY(a.row), duration: 150 });
     await Promise.all([moveA, moveB]);
 
     if (!events) {
+      audio.invalid();
       // Ungültiger Zug: zurücktauschen
       await Promise.all([
         this.tween({ targets: imgA, x: cellX(a.col), y: cellY(a.row), duration: 150 }),
@@ -371,6 +395,7 @@ export class BattleScene extends Phaser.Scene {
       case 'enemyAttack':
         return this.animateEnemyAttack(event.enemyUid, event.damage);
       case 'heal':
+        audio.heal();
         this.floatText(WIDTH / 2, 430, `+${event.amount}`, '#7dff9c');
         this.setTeamHp(this.teamHpShown + event.amount);
         return this.wait(250);
@@ -378,6 +403,7 @@ export class BattleScene extends Phaser.Scene {
         this.cameras.main.flash(250, 255, 240, 140);
         return this.wait(250);
       case 'skill': {
+        audio.skill();
         const def = heroDef(event.heroId);
         const view = this.heroViews.find((h) => h.id === event.heroId)!;
         view.energy = 0;
@@ -387,11 +413,14 @@ export class BattleScene extends Phaser.Scene {
       case 'wave':
         for (const v of this.enemyViews.values()) v.container.destroy();
         this.enemyViews.clear();
+        audio.wave();
         await this.banner(`Welle ${event.index + 1}`, '#ffd27a');
         this.createEnemies(event.enemies, true);
         this.updateWaveText(event.index);
         return this.wait(500);
       case 'result':
+        if (event.result === 'won') audio.victory();
+        else audio.defeat();
         await this.wait(500);
         this.finish(event.result);
         return;
@@ -399,6 +428,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private async animateCascade(step: Extract<BattleEvent, { type: 'cascade' }>['step'], combo: number) {
+    if (step.cleared.length) audio.clear(combo);
     if (combo > 0) this.floatText(WIDTH / 2, BOARD_Y + 40, `Kombo ×${combo + 1}!`, '#ffd27a', 44);
     await Promise.all(
       step.cleared.map((c) => {
@@ -469,6 +499,7 @@ export class BattleScene extends Phaser.Scene {
     await this.tween({ targets: shot, x: enemy.container.x, y: GROUND_Y - 70, duration: 200, ease: 'Quad.easeIn' });
     shot.destroy();
 
+    audio.hit();
     enemy.hp = Math.max(0, enemy.hp - event.damage);
     enemy.hpFill.width = enemy.barWidth * (enemy.hp / enemy.maxHp);
     this.floatText(enemy.container.x + (Math.random() - 0.5) * 40, GROUND_Y - 150, `-${event.damage}`, TILE_COLORS[hero.color]);
@@ -496,6 +527,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private async animateEnemyAttack(uid: number, damage: number) {
+    audio.zombie();
     const view = this.enemyViews.get(uid);
     if (view) await this.tween({ targets: view.container, y: GROUND_Y + 40, scale: 1.15, yoyo: true, duration: 140 });
     this.cameras.main.shake(220, 0.012);

@@ -1,4 +1,5 @@
 // Truppen: Konter-Dreieck, Einheiten ausbilden, laufende Märsche und Kampfberichte.
+import { audio } from '../audio';
 import { UNITS, armySize, fighters, unitDef, type Army, type UnitId } from '../core/army';
 import * as P from '../core/player';
 import { getWorld, marchSlots, recallMarch, type March } from '../core/world';
@@ -173,6 +174,7 @@ Object.assign(actions, {
   'train-go': () => {
     const block = P.startTraining(app.player, trainUnit, trainAmount, Date.now());
     if (block) return toast(TRAIN_BLOCK[block]);
+    audio.build();
     toast(`${trainAmount} ${unitDef(trainUnit).plural} in Ausbildung`);
     closeSheet();
     app.save();

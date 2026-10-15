@@ -12,6 +12,7 @@ import {
 import { battleTeam, newHeroState, STARTER_TEAM, upgradeHeroLevel, type HeroId, type HeroState } from './heroes';
 import { armySize, unitDef, UNITS, type Army, type UnitId } from './army';
 import { processMarches, type March, type Report, type TileState } from './world';
+import { emptyQuestState, emptyStats, rollDay, type QuestState, type Stats } from './quests';
 
 export const SAVE_VERSION = 2;
 export const RESOURCE_IDS: ResourceId[] = ['food', 'wood', 'steel'];
@@ -44,6 +45,8 @@ export interface Player {
   marches: March[];
   reports: Report[];
   world: { seed: number; tiles: Record<string, TileState> };
+  stats: Stats; // Zähler für Aufgaben
+  quests: QuestState;
   nextId: number;
   lastUpdate: number;
 }
@@ -69,6 +72,8 @@ export function createPlayer(now: number): Player {
     marches: [],
     reports: [],
     world: { seed: (now % 2147483646) + 1, tiles: {} },
+    stats: emptyStats(),
+    quests: emptyQuestState(),
     nextId: 1,
     lastUpdate: now,
   };
@@ -129,6 +134,7 @@ export function update(player: Player, now: number) {
     }
   }
   processMarches(player, now);
+  rollDay(player, now);
   const seconds = Math.max(0, (now - player.lastUpdate) / 1000);
   const cap = capacity(player);
   for (const r of RESOURCE_IDS) {
@@ -161,6 +167,7 @@ export function startUpgrade(player: Player, id: BuildingId, now: number): Upgra
   const s = player.buildings[id];
   pay(player, upgradeCost(b, s.level));
   s.upgradeEndsAt = now + upgradeSeconds(b, s.level) * 1000;
+  player.stats.upgrades += 1;
   return null;
 }
 
@@ -218,6 +225,7 @@ export function startTraining(player: Player, unit: UnitId, amount: number, now:
   const block = trainBlock(player, unit, amount);
   if (block) return block;
   pay(player, trainCost(unit, amount));
+  if (unitDef(unit).building === 'barracks') player.stats.trained += amount;
   player.queues[unitDef(unit).building] = { unit, amount, startAt: now, endsAt: now + trainSeconds(player, unit, amount) * 1000 };
   return null;
 }
@@ -229,6 +237,7 @@ export function upgradeHero(player: Player, id: HeroId): boolean {
   return upgradeHeroLevel(player, id, (cost) => {
     if (!canAfford(player, cost)) return false;
     pay(player, cost);
+    player.stats.heroTrains += 1;
     return true;
   });
 }
@@ -250,6 +259,7 @@ export function completeStage(player: Player, stageId: number): Resources & { di
   const diamonds = stageId > player.stagesCleared ? stageDiamonds(stageId) : 0;
   for (const r of RESOURCE_IDS) player.resources[r] += reward[r];
   player.diamonds += diamonds;
+  player.stats.battlesWon += 1;
   player.stagesCleared = Math.max(player.stagesCleared, stageId);
   return { ...reward, diamonds };
 }
@@ -288,6 +298,8 @@ export function deserialize(json: string, now: number): Player {
     troops: { ...fresh.troops, ...data.troops },
     queues: { ...fresh.queues, ...data.queues },
     world: { ...fresh.world, ...data.world },
+    stats: { ...fresh.stats, ...data.stats },
+    quests: { ...fresh.quests, ...data.quests },
     version: SAVE_VERSION,
   };
 }

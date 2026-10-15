@@ -1,6 +1,7 @@
 // Basis: Lager von oben mit antippbaren Gebäuden, dazu das Detailfenster zum Ausbauen.
 import { BUILDINGS, type BuildingDef, type BuildingId } from '../core/content';
 import * as P from '../core/player';
+import { questBanner } from './quests';
 import { costChips, fmt, fmtTime, pic, RES_IMG, RES_NAMES, timer } from './shared';
 
 const LAYOUT: Record<BuildingId, { x: number; y: number; w: number; img: string }> = {
@@ -99,6 +100,7 @@ export function renderBase(player: P.Player): string {
       <div><h1>Deine Basis</h1><p>Tippe ein Gebäude an, um es auszubauen.</p></div>
       <div class="pill">${pic('ui-muscle')} ${fmt(P.teamPower(player))}</div>
     </div>
+    ${questBanner(player)}
     <div class="builder ${active ? 'busy' : ''}">
       ${pic('ui-hammer')}
       ${active

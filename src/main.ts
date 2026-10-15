@@ -13,6 +13,9 @@ import { renderMap, scrollMapToCurrent, stageSheet } from './ui/map';
 import { actions, app, closeSheet, costChips, fmt, openSheet, patch, pic, refreshSheet, RES_IMG, RES_NAMES, toast, updateTimers } from './ui/shared';
 import { renderTroops } from './ui/troops';
 import { mountWorld, renderWorld, updateWorldMarches } from './ui/world';
+import { audio } from './audio';
+import * as Q from './core/quests';
+import { openQuests } from './ui/quests';
 import './style.css';
 
 const SAVE_KEY = 'survival-puzzle-save';
@@ -46,6 +49,7 @@ function renderResources() {
   const cap = P.capacity(player);
   const diamonds = `<button class="res gem" data-action="tab" data-arg="heroes" title="Diamanten">
       ${pic('ui-gem', 'res-icon')}<span class="res-val">${fmt(player.diamonds)}</span></button>`;
+  const gear = `<button class="res-gear" data-action="settings" aria-label="Einstellungen">⚙</button>`;
   return diamonds + P.RESOURCE_IDS.map((r) => {
     const value = player.resources[r];
     return `<div class="res ${value >= cap ? 'full' : ''}" title="${RES_NAMES[r]}">
@@ -53,7 +57,7 @@ function renderResources() {
       <span class="res-val">${fmt(value)}</span>
       <span class="res-bar"><i style="width:${Math.min(100, (value / cap) * 100).toFixed(0)}%"></i></span>
     </div>`;
-  }).join('');
+  }).join('') + gear;
 }
 
 function render() {
@@ -70,6 +74,10 @@ function render() {
   if (tab === 'world') updateWorldMarches(player);
   if (tab === 'troops') player.reports.forEach((r) => (r.read = true));
   const unread = player.reports.filter((r) => !r.read).length;
+  const claimable = Q.claimableCount(player, Date.now());
+  const baseBadge = document.getElementById('badge-base')!;
+  baseBadge.textContent = String(claimable);
+  baseBadge.hidden = claimable === 0;
   const badge = document.getElementById('badge-troops')!;
   badge.textContent = String(unread);
   badge.hidden = unread === 0;
@@ -92,6 +100,11 @@ function switchTab(next: Tab) {
 app.player = player;
 app.save = save;
 app.render = render;
+app.reset = () => {
+  localStorage.removeItem(SAVE_KEY);
+  window.removeEventListener('pagehide', save);
+  location.reload();
+};
 
 Object.assign(actions, {
   tab: (arg: string) => switchTab(arg as Tab),
@@ -99,7 +112,10 @@ Object.assign(actions, {
   upgrade: (arg: string) => {
     const block = P.startUpgrade(player, arg as BuildingId, Date.now());
     if (block) toast(BLOCK_TEXT[block]);
-    else toast('Bau gestartet!');
+    else {
+      audio.build();
+      toast('Bau gestartet!');
+    }
     save();
     render();
   },
@@ -113,6 +129,7 @@ Object.assign(actions, {
 document.addEventListener('click', (e) => {
   const el = (e.target as Element).closest<HTMLElement>('[data-action]');
   if (!el || (el as HTMLButtonElement).disabled) return;
+  audio.ui();
   actions[el.dataset.action!]?.(el.dataset.arg ?? '');
 });
 
@@ -163,6 +180,7 @@ async function startBattle(stageId: number) {
     battle,
     confirmFlee: () => confirm('Kampf abbrechen? Du bekommst keine Belohnung.'),
     onEnd: (outcome: BattleOutcome) => showResult(stageId, outcome),
+    tutorial: player.stats.battlesWon === 0,
   });
 }
 
@@ -214,7 +232,12 @@ function closeBattle() {
 }
 
 // ---------- Start ----------
+// Ton erst nach der ersten Berührung (Browser-Regel)
+document.addEventListener('pointerdown', () => audio.unlock(), { once: true });
+P.update(player, Date.now());
 render();
+// Login-Belohnung bereit → Aufgaben-Fenster kurz nach dem Start zeigen
+if (Q.loginReady(player, Date.now())) setTimeout(openQuests, 700);
 setInterval(tick, 1000);
 setInterval(save, 15_000);
 document.addEventListener('visibilitychange', () => {

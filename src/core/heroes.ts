@@ -386,6 +386,7 @@ export function summon(player: Player, count: 1 | 10, random: () => number = Mat
   const cost = count === 10 ? SUMMON_10_COST : SUMMON_COST;
   if (player.diamonds < cost) return null;
   player.diamonds -= cost;
+  player.stats.summons += count;
   const results: SummonResult[] = [];
   for (let i = 0; i < count; i++) {
     player.pity += 1;

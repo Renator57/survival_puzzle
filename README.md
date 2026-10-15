@@ -30,6 +30,9 @@ Handy-Spiel im Stil von *Puzzles & Survival*: **Match-3-Kämpfe gegen Zombie-Wel
 - **Truppen:** Schläger, Schützen und Fahrer aus der Kaserne – mit Konter-Dreieck
   (Schläger > Fahrer > Schützen > Schläger, +50 % Schaden). Sammelwagen aus der Werkstatt
   tragen 150 statt 6–10 Rohstoffe.
+- **Aufgaben:** Hauptaufgaben führen neue Spieler als Tutorial durchs Spiel (Ziel-Banner in der Basis),
+  5 tägliche Aufgaben mit Tagestruhe und eine Login-Belohnung über 7 Tage.
+- **Musik & Sound:** düstere Musik und Effekte, live erzeugt (keine Audiodateien), Lautstärke in den Einstellungen.
 - **Weltkarte:** 40×40 Felder zum Verschieben und Zoomen. Rohstofffelder sammeln, Zombie-Horden und
   Städte von Mitspielern angreifen (mit Sieg-Prognose), Märsche laufen live über die Karte, Kampfberichte.
   *Die Mitspieler sind derzeit simuliert* – mit dem Server (siehe Fahrplan) werden es echte Spieler.
@@ -50,7 +53,8 @@ zu Grafik oder Browser. Dieselben Dateien können später unverändert auf einem
 festen Zufalls-Seed, sodass der Server jeden Kampf nachrechnen und Schummeln erkennen kann.
 
 ```
-src/core/      Spielregeln (Server-tauglich): board.ts, battle.ts, player.ts, content.ts, army.ts, world.ts, heroes.ts
+src/core/      Spielregeln (Server-tauglich): board.ts, battle.ts, player.ts, content.ts, army.ts, world.ts, heroes.ts, quests.ts
+src/audio.ts   Musik und Soundeffekte (Web Audio)
 src/game/      Phaser-Kampfszene (nur Darstellung)
 src/main.ts    Menüs, Speichern, Navigation
 tests/         Tests der Spielregeln
@@ -104,4 +108,5 @@ das Apple Developer Program (99 $/Jahr).
 4. ~~Helden-System 2.0: 21 Helden, Truppen-Boni, Kombos, Talentbaum, Sterne, Beschwörung, Shop~~ ✅
 5. **Mehrspieler-Server**: Konten, Weltkarte mit echten Spielern, Allianzen, Chat, Ranglisten,
    Angriffe zwischen Spielern, Kämpfe werden vom Server berechnet
-6. Shop (In-App-Käufe über Google Play / App Store), Musik und Sound, Tutorial
+6. ~~Musik und Sound, Tutorial (Hauptaufgaben), Tagesaufgaben, Login-Belohnung, Einstellungen~~ ✅
+7. Shop mit echten In-App-Käufen (Google Play / App Store) – braucht den Server
